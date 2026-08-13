@@ -1,0 +1,4 @@
+"ticket_type_id","type_name","price_usd","perks_desc","capacity","is_available"
+1,Community Chest Pass,399.00,Standard entry to all 3 zones and all 5 festival venues | General standing/viewing areas | Standard restrooms and food vendor access | Standard odds on Chance Card draws,24000,true
+2,Raildroad Pass,599.00,"Everything in Community Chest, plus: express entry lane (skip GA lines) | Elevated viewing deck at every venue | VIP-only restrooms | Access to VIP food & beverage area (no GA lines) | Better odds + bigger discounts on Chance Card draws | Limited-edition festival pin",8000,true
+3,Boardwalk Pass,999.00,"Everything in Railroad Pass, plus: stage-front access at all venues | Private suite at Boardwalk Hall with seating and dedicated service | Priority entry (opens 30 min before GA) | Guaranteed bonus Chance Card coupon at check-in | Reserved parking | Limited-edition Boardwalk/Park Place deed card collectible",800,true

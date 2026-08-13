@@ -1,0 +1,15 @@
+coupon_id,item_type,restaurant_id,activity_id,coupon_desc,discount_label,sponsor_id
+1,restaurant,R047,,2-for-1 draft beers before 6pm,2-for-1,SP11
+2,restaurant,R068,,Free chips & salsa with any taco order,Free side,
+3,restaurant,R057,,15% off your check with festival wristband,15% off,
+4,restaurant,R093,,Buy one pastry get one half off,BOGO 50%,
+5,restaurant,R090,,$1 off any coffee drink,$1 off,
+6,restaurant,R024,,Free garlic knots with any pizza,Free add-on,
+7,restaurant,R021,,10% off crab feast platters,10% off,
+8,restaurant,R049,,2-for-1 well drinks 4-6pm,2-for-1,SP14
+9,restaurant,R019,,Free order of fries with any burger,Free side,
+10,restaurant,R083,,Complimentary tasting flight with wristband,Free tasting,SP04
+11,activity,,11,$10 off Atlantic City Parasailing,$10 off,SP25
+12,activity,,16,Free souvenir map on the Monopoly Walking Tour,Free item,SP18
+13,activity,,17,Buy one vinyl get 20% off a second,20% off,SP09
+14,activity,,9,Skip-the-line pass with festival wristband,Skip line,SP01
