@@ -1,0 +1,5 @@
+shiny
+pandas
+psycopg2-binary
+ipyleaflet
+shinywidgets
