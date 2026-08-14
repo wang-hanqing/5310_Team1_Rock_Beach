@@ -374,7 +374,7 @@ def _plan_show_card(row, added: bool) -> str:
 
 
 DAY_POSTER_COLORS = {1: "#E85D7A", 2: "#2EC4B6", 3: "#7F77DD"}
-DAY_POSTER_LABELS = {1: "FRI &middot; AUG 21", 2: "SAT &middot; AUG 22", 3: "SUN &middot; AUG 23"}
+DAY_POSTER_LABELS = {1: "AUG 21 FRI", 2: "AUG 22 SAT", 3: "AUG 23 SUN"}
 
 
 def _poster_card(day_number: int, info) -> str:
@@ -407,7 +407,7 @@ def _poster_card(day_number: int, info) -> str:
         </div>'''
 
     return f'''<div onclick="rbOpenLineupModal()" style="flex:1;background:#FDF6E3;border:1.5px solid #1B2A4A;border-radius:8px;overflow:hidden;cursor:pointer">
-      <div style="background:{color};padding:6px 0;text-align:center"><span style="font-size:10px;font-weight:700;color:#FDF6E3">{label}</span></div>
+      <div style="background:{color};padding:8px 0;text-align:center"><span style="font-size:15px;font-weight:400;font-family:var(--font-body);letter-spacing:0.06em;color:#FDF6E3">{label}</span></div>
       {body}
     </div>'''
 
@@ -714,12 +714,12 @@ input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; 
 .rb-cta { cursor:pointer; }
 
 /* ── Website nav + hero (landing page) ───────────────────────────────────── */
-.rb-navbar { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:20px; background:#1B2A4A; padding:18px 40px; }
-.rb-logo { justify-self:start; color:#fff; font-family:var(--font-display); font-weight:400; font-size:1.05rem; letter-spacing:0.02em; white-space:nowrap; }
-.rb-nav-links { justify-self:center; display:flex; gap:28px; flex-wrap:wrap; }
-.rb-nav-link { color:rgba(255,255,255,0.8) !important; font-weight:700; font-size:0.8rem; letter-spacing:0.05em; text-transform:uppercase; text-decoration:none !important; cursor:pointer; transition:color 0.15s ease; }
+.rb-navbar { display:flex; align-items:center; gap:24px; background:#1B2A4A; padding:18px 40px; }
+.rb-logo { color:#fff; font-family:var(--font-display); font-weight:400; font-size:1.05rem; letter-spacing:0.02em; white-space:nowrap; }
+.rb-nav-links { margin-left:auto; display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
+.rb-nav-link { color:rgba(255,255,255,0.85) !important; font-family:var(--font-body); font-weight:400; font-size:0.85rem; letter-spacing:0.06em; text-transform:uppercase; text-decoration:none !important; cursor:pointer; transition:color 0.15s ease; }
 .rb-nav-link:hover { color:#FFD84D !important; }
-.rb-buy-btn { justify-self:end; background:#E85D7A !important; color:#fff !important; font-weight:800; font-size:0.8rem; letter-spacing:0.03em; text-transform:uppercase; text-decoration:none !important; padding:10px 22px; border-radius:999px; white-space:nowrap; cursor:pointer; box-shadow:0 6px 16px rgba(232,93,122,0.4); transition:transform 0.15s ease; }
+.rb-buy-btn { background:#E85D7A !important; color:#fff !important; font-family:var(--font-body); font-weight:600; font-size:0.8rem; letter-spacing:0.04em; text-transform:uppercase; text-decoration:none !important; padding:10px 22px; border-radius:999px; white-space:nowrap; cursor:pointer; box-shadow:0 6px 16px rgba(232,93,122,0.4); transition:transform 0.15s ease; }
 .rb-buy-btn:hover { transform:translateY(-1px); }
 
 .rb-hero { position:relative; aspect-ratio:16/7; min-height:0; overflow:hidden; }
@@ -983,16 +983,11 @@ PAGE_1_NAV = """
   <div class="rb-nav-links">
     <span class="rb-nav-link" onclick="rbShow(1)">HOME</span>
     <span class="rb-nav-link" onclick="rbShow(2)">LINEUP</span>
-    <span class="rb-nav-link" onclick="rbShow(5)">INFO</span>
-    <span class="rb-nav-link" onclick="rbShow(7)">FAQ</span>
   </div>
   <span class="rb-buy-btn" onclick="rbShow(8)">BUY TICKETS</span>
 </div>
 """
 
-PAGE_1_POSTERS_LABEL = """
-<p style="font-size:18px;font-weight:700;color:#FDF6E3;margin:0 0 14px;text-shadow:0 2px 8px rgba(0,0,0,0.4)">Daily posters</p>
-"""
 
 # Full 3-day lineup graphic, shown as a popup when any daily poster is
 # clicked. Sits outside the .rb-page structure (appended once, right after
@@ -1114,13 +1109,11 @@ app_ui = ui.page_fluid(
                     class_="rb-landing-hero-space",
                 ),
                 ui.div(
-                    ui.HTML(PAGE_1_POSTERS_LABEL),
                     ui.output_ui("daily_posters"),
                     class_="rb-posters-photo-bg",
                 ),
                 ui.div(
                     ui.input_action_button("join_go", ui.TagList(ui.HTML(GO_ICON_SVG), "GO"), class_="rb-go-btn"),
-                    ui.HTML('<p class="rb-go-finale-caption">You\'ve made it around the board &mdash; land on GO to collect $200 and start planning</p>'),
                     class_="rb-go-finale",
                 ),
                 class_="rb-landing-fixed-bg",

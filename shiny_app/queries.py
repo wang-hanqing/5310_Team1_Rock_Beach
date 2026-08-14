@@ -243,9 +243,15 @@ def get_chance_card(attendee_id: int):
 
 def get_daily_headliner_posters():
     """One featured headliner performance per festival day (earliest set
-    time that day) — used for the Pass Go page's 3 deed-card posters."""
+    time that day) — used for the Pass Go page's 3 deed-card posters.
+
+    Day 1 (Aug 21) has a genuine tie: Coldplay and Justin Bieber both
+    have a Headliner performance at the exact same start_time (21:00),
+    on different stages. The tiebreak below is an explicit editorial
+    choice to feature Coldplay on that day's poster — not a bug fix,
+    just picking a winner for a tie the query alone can't resolve."""
     sql = """
-        SELECT fd.day_number, fd.day_date, ar.artist_name,
+        SELECT fd.day_number, fd.day_date, ar.artist_id, ar.artist_name,
                ar.profile_image_url, v.stage_name
         FROM performance p
         JOIN artist ar       ON p.artist_id = ar.artist_id
@@ -257,7 +263,10 @@ def get_daily_headliner_posters():
     df = run_query(sql)
     posters = {}
     for day_number, group in df.groupby("day_number"):
-        posters[int(day_number)] = group.iloc[0].to_dict()
+        if day_number == 1 and (group["artist_name"] == "Coldplay").any():
+            posters[int(day_number)] = group[group["artist_name"] == "Coldplay"].iloc[0].to_dict()
+        else:
+            posters[int(day_number)] = group.iloc[0].to_dict()
     return posters
 
 
