@@ -840,8 +840,11 @@ input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; 
 
 /* Pass Go's circular GO button, a Shiny action button reskinned to match
    the original CSS-only circle */
-.rb-go-btn { all:unset; box-sizing:border-box; cursor:pointer; background:#FFD84D; border:4px solid #1B2A4A; color:#1B2A4A; width:150px; height:150px; border-radius:50%; font-size:28px; font-weight:800; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font-family:inherit; text-align:center; box-shadow:0 8px 24px rgba(0,0,0,0.35); }
-.rb-go-btn:hover { transform:translateY(-2px) scale(1.03); }
+.rb-go-btn-wrap { position:relative; display:inline-block; }
+.rb-go-btn { all:unset; box-sizing:border-box; cursor:pointer; width:170px; height:170px; display:block; }
+.rb-go-btn img { width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 8px 20px rgba(0,0,0,0.35)); transition:transform 0.15s ease; }
+.rb-go-btn:hover img { transform:translateY(-2px) scale(1.03); }
+.rb-go-dice-badge { position:absolute; top:-6px; right:-6px; width:44px; height:44px; background:#FFD84D; border:3px solid #1B2A4A; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,0.3); pointer-events:none; }
 
 /* Plan Shows: filter bar, performance rows, jail-card conflict warning, map */
 .rb-filter-row { display:flex; gap:10px; padding:4px 24px 18px; flex-wrap:wrap; align-items:center; }
@@ -1113,7 +1116,11 @@ app_ui = ui.page_fluid(
                     class_="rb-posters-photo-bg",
                 ),
                 ui.div(
-                    ui.input_action_button("join_go", ui.TagList(ui.HTML(GO_ICON_SVG), "GO"), class_="rb-go-btn"),
+                    ui.div(
+                        ui.input_action_button("join_go", ui.HTML('<img src="go_button_3d_transparent_v2.gif" alt="GO">'), class_="rb-go-btn"),
+                        ui.HTML(f'<div class="rb-go-dice-badge">{GO_ICON_SVG}</div>'),
+                        class_="rb-go-btn-wrap",
+                    ),
                     class_="rb-go-finale",
                 ),
                 class_="rb-landing-fixed-bg",
