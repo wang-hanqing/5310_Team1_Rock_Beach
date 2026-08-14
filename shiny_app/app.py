@@ -294,11 +294,18 @@ def _artist_photo_src(row):
 
 
 def _lineup_grid_card(row, large=False) -> str:
-    """One portrait card for the photo-grid Lineup page: full-bleed photo
-    (or a colorful gradient fallback if no photo), dark gradient overlay,
-    name/genre/venue caption, gold HEADLINER badge when applicable.
-    `large=True` (used for the Headliner tier) scales the badge, name and
-    caption text up so headliners visually pop more than support/rising."""
+    """One portrait card for the photo-grid Lineup page: rounded photo
+    (or a colorful gradient fallback if no photo) with its own drop
+    shadow so it separates cleanly from whatever's behind it, and a
+    floating cream pill overlapping the photo's bottom edge holding the
+    artist name + genre — same visual language KCON LA's lineup page
+    uses, works over a busy/textured page background without needing a
+    dark gradient painted onto the photo itself.
+    `large=True` (used for the Headliner tier) scales the pill and text
+    up so headliners visually pop more than support/rising — sizing is
+    the only difference, tier position in the page (its own row, above
+    support/rising) still does the actual signaling of who's a
+    headliner, so there's no separate badge on top of that."""
     name = row["artist_name"]
     img_src = _artist_photo_src(row)
     if img_src:
@@ -310,9 +317,8 @@ def _lineup_grid_card(row, large=False) -> str:
     # Venue name intentionally left out of the caption — just artist name + genre.
     meta = row.get("genre") if isinstance(row.get("genre"), str) and row.get("genre").strip() else ""
 
-    name_size = "23px" if large else "19px"
-    meta_size = "16px" if large else "14px"
-    pad = "14px" if large else "12px"
+    name_size = "16px" if large else "13px"
+    meta_size = "12px" if large else "10px"
 
     spotify_url = row.get("spotify_url")
     social_row = ""
@@ -323,13 +329,12 @@ def _lineup_grid_card(row, large=False) -> str:
         </div>'''
 
     return f'''
-    <div>
-      <div style="position:relative;aspect-ratio:3/4;border-radius:12px;overflow:hidden;background:#1B2A4A">
-        {bg_layer}
-        <div style="position:absolute;inset:0;background:linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.15) 55%, rgba(0,0,0,0) 75%)"></div>
-        <div style="position:absolute;left:0;right:0;bottom:0;padding:{pad};z-index:2">
-          <p style="color:#fff;font-weight:800;font-size:{name_size};margin:0 0 2px;text-shadow:0 2px 6px rgba(0,0,0,0.5)">{name}</p>
-          <p style="color:rgba(255,255,255,0.85);font-size:{meta_size};margin:0">{meta}</p>
+    <div class="rb-artist-card-wrap">
+      <div class="rb-artist-photo">
+        <div class="rb-artist-photo-inner">{bg_layer}</div>
+        <div class="rb-artist-pill">
+          <p class="name" style="font-size:{name_size}">{name}</p>
+          <p class="meta" style="font-size:{meta_size}">{meta}</p>
         </div>
       </div>
       {social_row}
@@ -338,9 +343,11 @@ def _lineup_grid_card(row, large=False) -> str:
 
 def _plan_show_card(row, added: bool) -> str:
     """One photo card for the Plan Shows lineup-style grid — same visual
-    language as the Lineup page's cards (full-bleed artist photo, dark
-    gradient, HEADLINER badge), but captioned with the performance's time
-    and stage instead of genre, plus an Add / Landed-here action."""
+    language as the Lineup page's v2 cards (rounded photo, floating
+    cream pill), but captioned with the performance's time and stage
+    instead of genre, plus an Add / Landed-here action badge in the
+    photo's top-right corner (separate from the bottom pill, so the two
+    don't compete for the same space)."""
     name = row["artist_name"]
     img_src = _artist_photo_src(row)
     if img_src:
@@ -362,13 +369,14 @@ def _plan_show_card(row, added: bool) -> str:
     time_range = f"{_fmt_time(row['start_time'])}&ndash;{_fmt_time(row['end_time'])}"
 
     return f'''
-    <div style="position:relative;aspect-ratio:3/4;border-radius:12px;overflow:hidden;background:#1B2A4A">
-      {bg_layer}
-      <div style="position:absolute;inset:0;background:linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.15) 55%, rgba(0,0,0,0) 75%)"></div>
-      {action}
-      <div style="position:absolute;left:0;right:0;bottom:0;padding:14px;z-index:2">
-        <p style="color:#fff;font-weight:800;font-size:19px;margin:0 0 3px;text-shadow:0 2px 6px rgba(0,0,0,0.5)">{name}</p>
-        <p style="color:rgba(255,255,255,0.85);font-size:14px;margin:0">{time_range} &middot; {row['stage_name']}</p>
+    <div class="rb-artist-card-wrap">
+      <div class="rb-artist-photo">
+        <div class="rb-artist-photo-inner">{bg_layer}</div>
+        {action}
+        <div class="rb-artist-pill">
+          <p class="name" style="font-size:13px">{name}</p>
+          <p class="meta" style="font-size:10px">{time_range} &middot; {row['stage_name']}</p>
+        </div>
       </div>
     </div>'''
 
@@ -691,6 +699,12 @@ body { font-family:var(--font-body); background:#fff; margin:0; padding:0; overf
 input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; font-family:inherit; }
 .dashedbox { background:rgba(255,255,255,0.85); border:1.5px dashed #1B2A4A; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#1B2A4A; opacity:.75; font-size:13px; }
 .token { background:#1B2A4A; color:#FFD84D; font-size:12px; font-weight:700; padding:6px 12px; border-radius:10px; display:inline-flex; align-items:center; gap:4px; transform:rotate(-4deg); box-shadow:1px 2px 0 rgba(0,0,0,.15); white-space:nowrap; }
+.rb-artist-photo { width:100%; aspect-ratio:3/4; position:relative; }
+.rb-artist-photo-inner { width:100%; height:100%; border-radius:18px; overflow:hidden; box-shadow:0 8px 20px rgba(0,0,0,0.35); background:#1B2A4A; }
+.rb-artist-pill { position:absolute; left:50%; bottom:-16px; transform:translateX(-50%); background:#FDF6E3; border:2px solid #1B2A4A; border-radius:999px; padding:8px 16px; min-width:76%; max-width:94%; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.25); z-index:2; }
+.rb-artist-pill .name { color:#1B2A4A; font-weight:800; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rb-artist-pill .meta { color:#6b6248; font-weight:500; letter-spacing:0.03em; margin:1px 0 0; }
+.rb-artist-card-wrap { padding-bottom:18px; }
 
 /* Plan Shows: "Landed" stamp on an already-added show, made clickable so
    attendees can change their mind — hover swaps the label + color to a
@@ -834,17 +848,18 @@ input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; 
    bounded by the max instead of stretching unbounded like the old 1fr did. */
 .rb-lineup-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 150px)); gap:12px; padding:16px 20px; background:transparent; }
 /* Social link-out row under each lineup card (Spotify, etc.) */
-.rb-social-row { display:flex; justify-content:center; gap:8px; margin-top:8px; }
+.rb-social-row { display:flex; justify-content:center; gap:8px; margin-top:30px; }
 .rb-social-row a { display:flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:50%; background:rgba(0,0,0,0.55); box-shadow:0 2px 6px rgba(0,0,0,0.3); }
 .rb-social-row a:hover { background:rgba(0,0,0,0.8); transform:scale(1.06); }
 
 /* Pass Go's circular GO button, a Shiny action button reskinned to match
    the original CSS-only circle */
-.rb-go-btn-wrap { position:relative; display:inline-block; }
-.rb-go-btn { all:unset; box-sizing:border-box; cursor:pointer; width:170px; height:170px; display:block; }
+.rb-go-btn-wrap { position:relative; display:flex; align-items:center; gap:10px; }
+.rb-go-btn.btn.btn-default.action-button { all:unset; box-sizing:border-box; cursor:pointer; width:170px; height:170px; display:block; background:transparent !important; border:none !important; }
+.rb-go-btn .action-label { display:block; width:100%; height:100%; }
 .rb-go-btn img { width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 8px 20px rgba(0,0,0,0.35)); transition:transform 0.15s ease; }
 .rb-go-btn:hover img { transform:translateY(-2px) scale(1.03); }
-.rb-go-dice-badge { position:absolute; top:-6px; right:-6px; width:44px; height:44px; background:#FFD84D; border:3px solid #1B2A4A; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,0.3); pointer-events:none; }
+.rb-go-dice-badge { width:44px; height:44px; background:#FFD84D; border:3px solid #1B2A4A; border-radius:10px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,0.3); transform:rotate(-8deg); flex-shrink:0; }
 
 /* Plan Shows: filter bar, performance rows, jail-card conflict warning, map */
 .rb-filter-row { display:flex; gap:10px; padding:4px 24px 18px; flex-wrap:wrap; align-items:center; }
