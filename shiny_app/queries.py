@@ -161,6 +161,7 @@ def get_all_restaurants():
     ~100 cards. Ordered best-rated first within each group."""
     sql = """
         SELECT r.restaurant_id, r.name, r.food_category, r.price_range,
+               r.est_cost_per_person_usd,
                r.opening_hours, r.address, r.rating, r.review_count,
                r.country, r.yelp_url, r.google_maps_url,
                c.discount_label, c.coupon_desc
@@ -229,7 +230,7 @@ def get_chance_card(attendee_id: int):
         return None
     sql = """
         SELECT item_type, item_id, item_name, coupon_id, coupon_desc,
-               discount_label, gap_start, gap_end, gap_minutes,
+               discount_label, sponsor_name, item_url, gap_start, gap_end, gap_minutes,
                approx_miles_from_stage
         FROM v_downtime_chance_cards
         WHERE attendee_id = %(attendee_id)s
@@ -432,25 +433,45 @@ def _jitter_duplicate_coords(df: pd.DataFrame, radius_deg: float = 0.00035) -> p
 
 def get_map_locations():
     """Unified Venue/Stay/Dining/Activity dataset (name, latitude,
-    longitude, category, description) for the interactive trip map,
-    read live from the database. Column mapping mirrors the DB architect's
-    own map-demo script, just sourced from live tables instead of the
-    static CSVs that script was originally built against."""
-    venues = run_query("SELECT stage_name AS name, stage_type AS description, latitude, longitude FROM venue")
+    longitude, category, description, id_value) for the interactive trip
+    map, read live from the database. id_value is the row's real primary
+    key (stage_id/property_name/restaurant_id/activity_id — property has
+    no separate id column already in use elsewhere in the app, so its
+    name doubles as the key, same as selected_stay's own storage), used
+    to wire map clicks to the same select/favorite actions the list/card
+    views already trigger, instead of markers being decorative-only."""
+    venues = run_query("SELECT stage_id AS id_value, stage_name AS name, stage_type AS description, latitude, longitude FROM venue")
     venues["category"] = "Venue"
 
-    stays = run_query("SELECT property_name AS name, address AS description, latitude, longitude FROM property")
+    stays = run_query("SELECT property_name AS id_value, property_name AS name, address AS description, latitude, longitude FROM property")
     stays["category"] = "Stay"
 
-    diners = run_query("SELECT name, food_category, price_range, latitude, longitude FROM restaurant")
+    diners = run_query("SELECT restaurant_id AS id_value, name, food_category, price_range, latitude, longitude FROM restaurant")
     diners["description"] = diners["food_category"].fillna("") + " · " + diners["price_range"].fillna("")
     diners["category"] = "Dining"
-    diners = diners[["name", "description", "latitude", "longitude", "category"]]
+    diners = diners[["id_value", "name", "description", "latitude", "longitude", "category"]]
 
-    activities = run_query("SELECT activity_name AS name, description, latitude, longitude FROM activity")
+    activities = run_query("SELECT activity_id AS id_value, activity_name AS name, description, latitude, longitude FROM activity")
     activities["category"] = "Activity"
 
     combined = pd.concat([venues, stays, diners, activities], ignore_index=True)
     combined = combined.dropna(subset=["latitude", "longitude"])
     combined = _jitter_duplicate_coords(combined)
     return combined
+
+
+# ── Trip Summary / Budget queries ────────────────────────────────────────────
+def get_stay_details(property_name: str):
+    """Price range + map link for the attendee's single selected stay
+    (session-only selected_stay reactive value stores just the name, not
+    a property_id, so this looks it up by name)."""
+    if not property_name:
+        return None
+    sql = """
+        SELECT property_name, price_min_usd, price_max_usd, google_maps_link
+        FROM property
+        WHERE property_name = %(name)s
+        LIMIT 1
+    """
+    df = run_query(sql, params={"name": property_name})
+    return df.iloc[0] if len(df) else None

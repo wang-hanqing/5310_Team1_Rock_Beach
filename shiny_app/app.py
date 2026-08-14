@@ -24,7 +24,7 @@ from pathlib import Path
 import pandas as pd
 from shiny import App, ui, render, reactive
 from shinywidgets import output_widget, render_widget
-from ipyleaflet import Map as LeafletMap, Marker, AwesomeIcon, TileLayer
+from ipyleaflet import Map as LeafletMap, Marker, AwesomeIcon, TileLayer, basemaps
 from ipywidgets import HTML as LeafletPopupHTML
 
 import queries
@@ -43,13 +43,17 @@ MAP_CATEGORY_STYLE = {
 AC_MAP_CENTER = (39.36, -74.43)
 
 
-def _redraw_map_markers(leaflet_map, df, selected_categories, highlight_names=None):
+def _redraw_map_markers(leaflet_map, df, selected_categories, highlight_names=None, on_marker_click=None):
     """Clear all non-tile layers off the given ipyleaflet Map and redraw
     markers for whichever categories are currently selected.
     `highlight_names` (optional set of `name` values) renders those rows
     with a gold star marker instead of the category's default color, and
     calls that out in the popup — used by the Plan Shows map to visibly
-    connect a venue pin to shows the attendee has actually added."""
+    connect a venue pin to shows the attendee has actually added.
+    `on_marker_click` (optional callback(row_dict)) wires a real action to
+    clicking a marker — e.g. selecting that stay, favoriting that
+    restaurant/activity — instead of the marker being decorative and only
+    showing a popup on click."""
     leaflet_map.layers = tuple(layer for layer in leaflet_map.layers if isinstance(layer, TileLayer))
     if df is None or len(df) == 0 or not selected_categories:
         return
@@ -65,7 +69,15 @@ def _redraw_map_markers(leaflet_map, df, selected_categories, highlight_names=No
         marker = Marker(location=(row["latitude"], row["longitude"]), icon=icon, draggable=False)
         desc = row.get("description") or ""
         added_tag = "&#9733; On your schedule<br>" if is_added else ""
-        marker.popup = LeafletPopupHTML(value=f"{added_tag}<b>{row['name']}</b><br>{row['category']}<br>{desc}")
+        action_hint = "<br><i>Click pin to select</i>" if on_marker_click else ""
+        marker.popup = LeafletPopupHTML(value=f"{added_tag}<b>{row['name']}</b><br>{row['category']}<br>{desc}{action_hint}")
+        if on_marker_click:
+            row_dict = row.to_dict()
+            # Default-arg trick to bind THIS row's data into the closure —
+            # without it every marker's handler would see the last row of
+            # the loop instead of its own (the classic Python late-binding
+            # closure bug).
+            marker.on_click(lambda *, _row=row_dict, **kwargs: on_marker_click(_row))
         leaflet_map.add_layer(marker)
 
 # ── Steps + palette ──────────────────────────────────────────────────────────
@@ -598,6 +610,11 @@ def _chance_card_html(row) -> str:
     name = row.get("item_name") or "Mystery pick"
     discount = row.get("discount_label") or ""
     desc = row.get("coupon_desc") or ""
+    sponsor_name = row.get("sponsor_name")
+    sponsor_badge = (
+        f'<p style="font-size:11px;font-weight:700;color:#4A1B0C;opacity:.7;margin:2px 0 0;letter-spacing:0.04em;text-transform:uppercase">Presented by {html.escape(sponsor_name)}</p>'
+        if sponsor_name else ""
+    )
 
     # Save button carries the pick's details as data-* attributes so the
     # JS click handler (rbSaveChance) can forward them to Shiny as a real
@@ -624,6 +641,7 @@ def _chance_card_html(row) -> str:
             <div style="background:#E85D7A;color:#FDF6E3;font-size:14px;font-weight:800;padding:5px 14px;border-radius:10px;display:inline-block;margin-bottom:6px;letter-spacing:0.03em">{discount}</div>
             <p style="font-size:21px;font-weight:800;color:#1B2A4A;margin:0 0 5px;line-height:1.15">{name}</p>
             <p style="font-size:15px;color:#4A3B22;opacity:.85;margin:0;line-height:1.25">{desc}</p>
+            {sponsor_badge}
           </div>
         </div>
       </div>
@@ -660,8 +678,15 @@ def _map_html(points, legend, height=150) -> str:
 
 # ── Shared CSS ────────────────────────────────────────────────────────────────
 CSS = """
+@import url('https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;500;600;700;800;900&display=swap');
+:root {
+  --font-display:'Bungee',cursive;
+  --font-body:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  --text-xs:11px; --text-sm:12.5px; --text-base:14px; --text-md:16px;
+  --text-lg:19px; --text-xl:24px; --text-2xl:32px;
+}
 * { box-sizing:border-box; margin:0; padding:0; }
-body { font-family:'Helvetica Neue',Arial,sans-serif; background:#fff; margin:0; padding:0; overflow-x:hidden; }
+body { font-family:var(--font-body); background:#fff; margin:0; padding:0; overflow-x:hidden; }
 .chip { display:inline-block; font-size:14px; padding:8px 14px; border-radius:14px; }
 input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; font-family:inherit; }
 .dashedbox { background:rgba(255,255,255,0.85); border:1.5px dashed #1B2A4A; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#1B2A4A; opacity:.75; font-size:13px; }
@@ -689,12 +714,12 @@ input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; 
 .rb-cta { cursor:pointer; }
 
 /* ── Website nav + hero (landing page) ───────────────────────────────────── */
-.rb-navbar { display:flex; align-items:center; justify-content:space-between; gap:20px; background:#1B2A4A; padding:18px 40px; flex-wrap:wrap; }
-.rb-logo { color:#fff; font-weight:900; font-size:1.15rem; letter-spacing:0.02em; white-space:nowrap; }
-.rb-nav-links { display:flex; gap:28px; flex-wrap:wrap; }
+.rb-navbar { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:20px; background:#1B2A4A; padding:18px 40px; }
+.rb-logo { justify-self:start; color:#fff; font-family:var(--font-display); font-weight:400; font-size:1.05rem; letter-spacing:0.02em; white-space:nowrap; }
+.rb-nav-links { justify-self:center; display:flex; gap:28px; flex-wrap:wrap; }
 .rb-nav-link { color:rgba(255,255,255,0.8) !important; font-weight:700; font-size:0.8rem; letter-spacing:0.05em; text-transform:uppercase; text-decoration:none !important; cursor:pointer; transition:color 0.15s ease; }
 .rb-nav-link:hover { color:#FFD84D !important; }
-.rb-buy-btn { background:#E85D7A !important; color:#fff !important; font-weight:800; font-size:0.8rem; letter-spacing:0.03em; text-transform:uppercase; text-decoration:none !important; padding:10px 22px; border-radius:999px; white-space:nowrap; cursor:pointer; box-shadow:0 6px 16px rgba(232,93,122,0.4); transition:transform 0.15s ease; }
+.rb-buy-btn { justify-self:end; background:#E85D7A !important; color:#fff !important; font-weight:800; font-size:0.8rem; letter-spacing:0.03em; text-transform:uppercase; text-decoration:none !important; padding:10px 22px; border-radius:999px; white-space:nowrap; cursor:pointer; box-shadow:0 6px 16px rgba(232,93,122,0.4); transition:transform 0.15s ease; }
 .rb-buy-btn:hover { transform:translateY(-1px); }
 
 .rb-hero { position:relative; aspect-ratio:16/7; min-height:0; overflow:hidden; }
@@ -1041,33 +1066,10 @@ PAGE_6_INTRO = """
 """
 
 # ── Page 7 · Trip Summary ───────────────────────────────────────────────────
-# Split around the "DINING & ACTIVITIES" block, which is now a live
-# @render.ui (chance_save_summary) reflecting whatever was actually Saved
-# on the Draw Chance page, instead of a hardcoded placeholder.
-PAGE_7_TOP = """
-<div style="background:transparent;padding:20px 24px">
-  <p style="font-size:22px;font-weight:700;color:#FDF6E3;margin:0 0 6px;text-shadow:0 2px 8px rgba(0,0,0,0.4)">Your trip so far</p>
-  <p style="font-size:14px;color:#E4D8C4;margin:0 0 14px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">Last check before you head to the bank</p>
-</div>
-"""
-
-PAGE_7_SHOWS = """
-<div style="background:transparent;padding:20px 24px">
-  <p style="font-size:13px;font-weight:700;color:#E4D8C4;margin:0 0 10px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">SHOWS &middot; included with ticket</p>
-  <div style="background:#fff;border:1px solid #ddd;border-radius:10px;padding:14px;margin-bottom:20px;font-size:14px">
-    <div style="display:flex;justify-content:space-between;padding:6px 0"><span>Fri Aug 21 &middot; 2 shows</span><span style="color:#888">6:00 PM, 9:00 PM</span></div>
-    <div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #eee"><span>Sat Aug 22 &middot; 2 shows</span><span style="color:#888">5:30 PM, 8:15 PM</span></div>
-    <div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #eee"><span>Sun Aug 23 &middot; 2 shows</span><span style="color:#888">4:00 PM, 7:00 PM</span></div>
-  </div>
-</div>
-"""
-
-PAGE_7_BOTTOM = """
-<div style="background:#F4D9A0;border-radius:10px;margin:0 24px 20px;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-  <span style="font-size:14px;color:#1B2A4A">6 shows &middot; 1 stay &middot; 2 saved picks</span>
-  <span onclick="rbShow(8)" class="rb-cta" style="background:#1B2A4A;color:#FDF6E3;font-size:14px;font-weight:700;padding:12px 20px;border-radius:14px">Continue to bank &middot; $399</span>
-</div>
-"""
+# Fully live now: header/shows/budget/footer are all @render.ui functions in
+# the server section below (trip_summary_header, trip_summary_shows,
+# trip_budget_summary, trip_summary_footer), reading real session +
+# database state instead of hardcoded placeholder text.
 
 # ── Page 8 · The Bank ───────────────────────────────────────────────────────
 PAGE_8_TOP = """
@@ -1138,18 +1140,24 @@ app_ui = ui.page_fluid(
                 ui.HTML(stepper_html(1)),
                 ui.HTML(PAGE_3_TITLE),
                 ui.div(
-                    ui.input_select("pf_day", "", choices={"": "All days", "1": "Fri Aug 21", "2": "Sat Aug 22", "3": "Sun Aug 23"}),
-                    ui.input_select("pf_venue", "", choices={"": "All venues"}),
-                    ui.input_text("pf_search", "", placeholder="Search artist..."),
-                    class_="rb-filter-row",
-                    style="background:transparent",
-                ),
-                ui.output_ui("conflict_warning"),
-                ui.output_ui("performance_list"),
-                ui.div(
-                    ui.HTML(PAGE_3_VENUE_MAP_LABEL),
-                    output_widget("plan_shows_map", height="320px"),
-                    style="background:transparent;padding:16px 20px 22px",
+                    ui.div(
+                        ui.div(
+                            ui.input_select("pf_day", "", choices={"": "All days", "1": "Fri Aug 21", "2": "Sat Aug 22", "3": "Sun Aug 23"}),
+                            ui.input_select("pf_venue", "", choices={"": "All venues"}),
+                            ui.input_text("pf_search", "", placeholder="Search artist..."),
+                            class_="rb-filter-row",
+                            style="background:transparent",
+                        ),
+                        ui.output_ui("conflict_warning"),
+                        ui.output_ui("performance_list"),
+                        style="flex:1;min-width:280px",
+                    ),
+                    ui.div(
+                        ui.HTML(PAGE_3_VENUE_MAP_LABEL),
+                        output_widget("plan_shows_map", height="500px"),
+                        style="width:340px;flex-shrink:0;position:sticky;top:16px",
+                    ),
+                    style="display:flex;gap:20px;align-items:flex-start;padding:0 20px 22px;flex-wrap:wrap",
                 ),
                 class_="rb-shadow-page",
             ),
@@ -1175,7 +1183,7 @@ app_ui = ui.page_fluid(
                     ui.div(
                         ui.input_select("rest_country", "", choices={"": "All countries"}),
                         ui.input_select("rest_category", "", choices={"": "All types"}),
-                        class_="rb-filter-row rb-filter-row-lg",
+                        class_="rb-filter-row",
                         style="padding:0 0 12px",
                     ),
                     ui.output_ui("restaurant_price_filter_chips"),
@@ -1186,7 +1194,7 @@ app_ui = ui.page_fluid(
                     ui.HTML('<p style="font-size:19px;font-weight:700;color:#FDF6E3;margin:0 0 12px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">More activities</p>'),
                     ui.div(
                         ui.input_select("activity_category_filter", "", choices={"": "All categories"}),
-                        class_="rb-filter-row rb-filter-row-lg",
+                        class_="rb-filter-row",
                         style="padding:0 0 12px",
                     ),
                     ui.output_ui("activity_list"),
@@ -1200,32 +1208,39 @@ app_ui = ui.page_fluid(
             ui.div(
                 ui.HTML(stepper_html(4)),
                 ui.HTML(PAGE_5_TITLE),
-                ui.output_ui("stay_filters"),
-                ui.output_ui("stay_cards"),
                 ui.div(
-                    ui.HTML(PAGE_5_MAP_LABEL),
-                    ui.input_checkbox_group(
-                        "stay_map_categories", "",
-                        choices=["Venue", "Stay"],
-                        selected=["Venue", "Stay"],
-                        inline=True,
+                    ui.div(
+                        ui.output_ui("stay_filters"),
+                        ui.output_ui("stay_cards"),
+                        style="flex:1;min-width:280px",
                     ),
-                    output_widget("stay_trip_map", height="320px"),
-                    style="background:transparent;padding:20px 24px 26px",
+                    ui.div(
+                        ui.HTML(PAGE_5_MAP_LABEL),
+                        ui.input_checkbox_group(
+                            "stay_map_categories", "",
+                            choices=["Venue", "Stay", "Dining", "Activity"],
+                            selected=["Venue", "Stay"],
+                            inline=True,
+                        ),
+                        output_widget("stay_trip_map", height="500px"),
+                        style="width:340px;flex-shrink:0;position:sticky;top:16px",
+                    ),
+                    style="display:flex;gap:20px;align-items:flex-start;padding:0 24px 26px;flex-wrap:wrap",
                 ),
                 class_="rb-shadow-page",
             ),
         ),
         _page(6, ui.div(
             ui.HTML(stepper_html(5)),
-            ui.HTML(PAGE_7_TOP),
+            ui.output_ui("trip_summary_header"),
             ui.output_ui("trip_progress_icons"),
-            ui.HTML(PAGE_7_SHOWS),
+            ui.output_ui("trip_summary_shows"),
             ui.output_ui("stay_summary"),
             ui.output_ui("chance_save_summary"),
             ui.output_ui("favorite_restaurants_summary"),
             ui.output_ui("favorite_activities_summary"),
-            ui.HTML(PAGE_7_BOTTOM),
+            ui.output_ui("trip_budget_summary"),
+            ui.output_ui("trip_summary_footer"),
             class_="rb-shadow-page",
         )),
         _page(7, ui.div(
@@ -1542,7 +1557,7 @@ def server(input, output, session):
 
     @render_widget
     def plan_shows_map():
-        return LeafletMap(center=AC_MAP_CENTER, zoom=13)
+        return LeafletMap(center=AC_MAP_CENTER, zoom=13, basemap=basemaps.CartoDB.Positron)
 
     @reactive.effect
     def _update_plan_shows_map():
@@ -1569,11 +1584,37 @@ def server(input, output, session):
         # marker instead of the plain red pin, so the map visibly connects
         # to what they've actually planned rather than showing every venue
         # the same way regardless of their choices.
-        _redraw_map_markers(plan_shows_map.widget, df, ["Venue"], highlight_names=added_venues)
+        # Clicking a pin sets the existing pf_venue dropdown to that venue
+        # — reuses the filter that's already wired to performance_list,
+        # rather than building a second, parallel filtering path.
+        _redraw_map_markers(
+            plan_shows_map.widget, df, ["Venue"], highlight_names=added_venues,
+            on_marker_click=lambda row: ui.update_select("pf_venue", selected=row["name"], session=session),
+        )
 
     @render_widget
     def stay_trip_map():
-        return LeafletMap(center=AC_MAP_CENTER, zoom=13)
+        return LeafletMap(center=AC_MAP_CENTER, zoom=13, basemap=basemaps.CartoDB.Positron)
+
+    def _on_stay_map_click(row):
+        # One handler covering all categories shown on this map (unlike
+        # Plan Shows' venue-only map above) — dispatches by row["category"]
+        # to whichever action that category already supports elsewhere in
+        # the app, so a map click does exactly what clicking "Add"/the
+        # heart icon on that item's own card would do.
+        category = row.get("category")
+        if category == "Stay":
+            selected_stay.set((row["name"], row.get("description")))
+        elif category == "Dining":
+            current = set(favorite_restaurant_ids.get())
+            current.add(str(row["id_value"]))
+            favorite_restaurant_ids.set(current)
+        elif category == "Activity":
+            current = set(favorite_activity_ids.get())
+            current.add(str(row["id_value"]))
+            favorite_activity_ids.set(current)
+        # Venue markers on this map (if shown) are informational only —
+        # no venue-selection action exists on the Select Stay page.
 
     @reactive.effect
     def _update_stay_trip_map():
@@ -1581,7 +1622,7 @@ def server(input, output, session):
             df = map_locations()
         except Exception:
             return
-        _redraw_map_markers(stay_trip_map.widget, df, input.stay_map_categories())
+        _redraw_map_markers(stay_trip_map.widget, df, input.stay_map_categories(), on_marker_click=_on_stay_map_click)
 
     @render.ui
     def headliner_spotlight():
@@ -1750,9 +1791,16 @@ def server(input, output, session):
         else:
             name, zone = picked
             photo = _stay_photo_html(name)
+            link_row = ""
+            try:
+                details = queries.get_stay_details(name)
+                if details is not None and isinstance(details.get("google_maps_link"), str) and details["google_maps_link"].strip():
+                    link_row = f'<a href="{html.escape(details["google_maps_link"], quote=True)}" target="_blank" rel="noopener" style="font-size:12px;color:#1B2A4A;font-weight:700;display:inline-block;margin-top:4px">View on map &#8599;</a>'
+            except Exception:
+                pass
             body = f'''<div style="background:#fff;display:flex;align-items:center;gap:14px;border:1.5px solid #1B2A4A;border-radius:10px;padding:14px;margin-bottom:20px">
               <div style="width:52px;height:52px;border-radius:8px;overflow:hidden;flex-shrink:0">{photo}</div>
-              <div style="flex:1"><p style="font-size:15px;font-weight:700;margin:0">{html.escape(name)}</p><p style="font-size:13px;color:#888;margin:3px 0 0">{html.escape(zone or "")}</p></div>
+              <div style="flex:1"><p style="font-size:15px;font-weight:700;margin:0">{html.escape(name)}</p><p style="font-size:13px;color:#888;margin:3px 0 0">{html.escape(zone or "")}</p>{link_row}</div>
               <span class="token" style="position:static">&#10003; Selected</span>
             </div>'''
         return ui.HTML(f'''
@@ -1760,6 +1808,51 @@ def server(input, output, session):
           <p style="font-size:13px;font-weight:700;color:#E4D8C4;margin:0 0 10px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">STAY &middot; reserve separately</p>
           {body}
         </div>''')
+
+    @render.ui
+    def trip_summary_header():
+        # Personalized with the name captured at registration (join_name),
+        # which was already being carried through current_attendee for
+        # every DB write on this page — it just was never actually shown
+        # to the person before now.
+        attendee = current_attendee.get()
+        name = (attendee or {}).get("name") or ""
+        greeting = f"Your trip so far, {html.escape(name)}" if name else "Your trip so far"
+        return ui.HTML(f'''
+        <div style="background:transparent;padding:20px 24px">
+          <p style="font-size:22px;font-weight:700;color:#FDF6E3;margin:0 0 6px;text-shadow:0 2px 8px rgba(0,0,0,0.4)">{greeting}</p>
+          <p style="font-size:14px;color:#E4D8C4;margin:0 0 14px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">Last check before you head to the bank</p>
+        </div>
+        ''')
+
+    @render.ui
+    def trip_summary_shows():
+        # Was hardcoded fake times (Fri 6/9pm etc.) for every attendee
+        # regardless of what they'd actually added — now reads the same
+        # v_attendee_schedule-backed query the Schedule page and the
+        # progress icons already use, grouped by day.
+        attendee = current_attendee.get()
+        _ = schedule_tick.get()  # re-render after every Add/Remove, same pattern as elsewhere on this page
+        rows_html = ""
+        if attendee:
+            try:
+                df = queries.get_attendee_schedule(attendee["id"])
+            except Exception:
+                df = pd.DataFrame()
+            if len(df):
+                for day_number, group in df.groupby("day_number"):
+                    times = ", ".join(_fmt_time(t) for t in group["start_time"])
+                    rows_html += f'<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #eee"><span>Day {day_number} &middot; {len(group)} show{"s" if len(group) != 1 else ""}</span><span style="color:#888">{times}</span></div>'
+        if not rows_html:
+            rows_html = '<div style="padding:6px 0;color:#888">No shows added yet &mdash; head to Plan Shows to pick some</div>'
+        return ui.HTML(f'''
+        <div style="background:transparent;padding:20px 24px">
+          <p style="font-size:13px;font-weight:700;color:#E4D8C4;margin:0 0 10px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">SHOWS &middot; included with ticket</p>
+          <div style="background:#fff;border:1px solid #ddd;border-radius:10px;padding:14px;margin-bottom:20px;font-size:14px">
+            {rows_html}
+          </div>
+        </div>
+        ''')
 
     @render.ui
     def trip_progress_icons():
@@ -2176,6 +2269,102 @@ def server(input, output, session):
           <p style="font-size:13px;font-weight:700;color:#E4D8C4;margin:0 0 10px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">FAVORITE ACTIVITIES</p>
           {body}
         </div>''')
+
+    def _compute_trip_budget():
+        """Shared by trip_budget_summary (display) and the email share
+        button (mailto body) so the two can never drift out of sync.
+        Returns (line_items, total) where line_items is a list of
+        (label, amount_or_None) tuples — amount is None for the stay row
+        when nothing's selected yet, so callers can render "TBD" instead
+        of a fake $0.
+
+        Ticket: flat price for whichever tier is currently picked on the
+        Bank page. Stay: average of price_min_usd/price_max_usd for the
+        one selected property, multiplied by 3 nights (the festival is
+        Aug 21-23, fixed length — no separate length-of-stay input in
+        this app). Dining/Activities: sum of est_cost_per_person_usd /
+        price_usd across everything hearted as a favorite. The one thing
+        NOT counted: a saved Draw Chance pick — it's a stumbled-into deal
+        with no reliable base price to sum, not a planned expense.
+        """
+        line_items = []
+
+        tier_key = selected_ticket_tier.get()
+        _img, tier_name, ticket_price = TICKET_TIERS.get(tier_key, (None, "Ticket", 0))
+        line_items.append((f"Festival ticket ({tier_name})", ticket_price))
+
+        stay_amount = None
+        picked_stay = selected_stay.get()
+        if picked_stay:
+            try:
+                details = queries.get_stay_details(picked_stay[0])
+                if details is not None and pd.notna(details.get("price_min_usd")) and pd.notna(details.get("price_max_usd")):
+                    stay_amount = round((float(details["price_min_usd"]) + float(details["price_max_usd"])) / 2) * 3
+            except Exception:
+                stay_amount = None
+        line_items.append(("Stay (3 nights, avg. rate)", stay_amount))
+
+        dining_total = 0
+        rest_df = all_restaurants_df()
+        favs_r = favorite_restaurant_ids.get()
+        if len(rest_df) and favs_r:
+            picked = rest_df[rest_df["restaurant_id"].isin(favs_r)]
+            dining_total = round(picked["est_cost_per_person_usd"].fillna(0).sum())
+        line_items.append((f"Dining ({len(favs_r)} favorited)", dining_total))
+
+        activity_total = 0
+        act_df = all_activities_df()
+        favs_a = favorite_activity_ids.get()
+        if len(act_df) and favs_a:
+            picked = act_df[act_df["activity_id"].astype(str).isin(favs_a)]
+            activity_total = round(picked["price_usd"].fillna(0).sum())
+        line_items.append((f"Activities ({len(favs_a)} favorited)", activity_total))
+
+        total = ticket_price + (stay_amount or 0) + dining_total + activity_total
+        return line_items, total
+
+    @render.ui
+    def trip_budget_summary():
+        line_items, total = _compute_trip_budget()
+        rows_html = ""
+        for label, amount in line_items:
+            amount_html = f"${amount:,.0f}" if amount is not None else '<span style="color:#888">TBD</span>'
+            rows_html += f'<div style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid #eee"><span>{html.escape(label)}</span><span>{amount_html}</span></div>'
+        return ui.HTML(f'''
+        <div style="background:transparent;padding:0 24px 4px">
+          <p style="font-size:13px;font-weight:700;color:#E4D8C4;margin:0 0 10px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">ESTIMATED BUDGET</p>
+          <div style="background:#fff;border:1px solid #ddd;border-radius:10px;padding:14px 16px;margin-bottom:12px;font-size:14px">
+            {rows_html}
+            <div style="display:flex;justify-content:space-between;padding:10px 0 0;margin-top:4px;border-top:1.5px solid #1B2A4A;font-size:17px;font-weight:800"><span>Total</span><span>${total:,.0f}</span></div>
+          </div>
+          <p style="font-size:11px;color:#E4D8C4;opacity:.75;margin:0 0 20px">Stay is estimated for the full 3-night festival (Aug 21-23) at the property's average nightly rate. Dining/activity prices shown are estimates, not final menu or admission prices.</p>
+        </div>
+        ''')
+
+    @render.ui
+    def trip_summary_footer():
+        # "Continue to bank" CTA shows the real ticket price for whichever
+        # tier is currently selected (was hardcoded $399 regardless of
+        # tier).
+        attendee = current_attendee.get()
+        n_shows = 0
+        if attendee:
+            try:
+                n_shows = len(queries.get_attendee_schedule(attendee["id"]))
+            except Exception:
+                n_shows = 0
+        n_stay = 1 if selected_stay.get() else 0
+        n_picks = len(favorite_restaurant_ids.get()) + len(favorite_activity_ids.get())
+
+        tier_key = selected_ticket_tier.get()
+        _img, tier_name, ticket_price = TICKET_TIERS.get(tier_key, (None, "Ticket", 0))
+
+        return ui.HTML(f'''
+        <div style="background:#F4D9A0;border-radius:10px;margin:0 24px 20px;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <span style="font-size:14px;color:#1B2A4A">{n_shows} shows &middot; {n_stay} stay &middot; {n_picks} saved picks</span>
+          <span onclick="rbShow(8)" class="rb-cta" style="background:#1B2A4A;color:#FDF6E3;font-size:14px;font-weight:700;padding:12px 20px;border-radius:14px">Continue to bank &middot; ${ticket_price:,.0f}</span>
+        </div>
+        ''')
 
 
 app = App(app_ui, server, static_assets=Path(__file__).parent / "www")
