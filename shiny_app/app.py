@@ -344,10 +344,15 @@ def _lineup_grid_card(row, large=False) -> str:
 def _plan_show_card(row, added: bool) -> str:
     """One photo card for the Plan Shows lineup-style grid — same visual
     language as the Lineup page's v2 cards (rounded photo, floating
-    cream pill), but captioned with the performance's time and stage
-    instead of genre, plus an Add / Landed-here action badge in the
-    photo's top-right corner (separate from the bottom pill, so the two
-    don't compete for the same space)."""
+    cream pill), captioned with artist name + stage. Time isn't repeated
+    here — each grid is already grouped under its own time-slot header
+    right above it, so putting the time on the card too was redundant,
+    and worse, made pills different heights depending on how long the
+    venue name was (e.g. "Atlantic City Beach Grounds" wrapping to a
+    3rd line vs "Ovation Hall" fitting on 1), which threw off row
+    alignment across cards. Plus an Add / Landed-here action badge in
+    the photo's top-right corner (separate from the bottom pill, so the
+    two don't compete for the same space)."""
     name = row["artist_name"]
     img_src = _artist_photo_src(row)
     if img_src:
@@ -366,8 +371,6 @@ def _plan_show_card(row, added: bool) -> str:
     else:
         action = f'<span class="rb-add-btn" style="position:absolute;top:8px;right:8px;z-index:3;font-size:11px;padding:6px 12px" onclick="rbAddShow({row["performance_id"]})">Add</span>'
 
-    time_range = f"{_fmt_time(row['start_time'])}&ndash;{_fmt_time(row['end_time'])}"
-
     return f'''
     <div class="rb-artist-card-wrap">
       <div class="rb-artist-photo">
@@ -375,7 +378,7 @@ def _plan_show_card(row, added: bool) -> str:
         {action}
         <div class="rb-artist-pill">
           <p class="name" style="font-size:13px">{name}</p>
-          <p class="meta" style="font-size:10px">{time_range} &middot; {row['stage_name']}</p>
+          <p class="meta" style="font-size:10px">{row['stage_name']}</p>
         </div>
       </div>
     </div>'''
@@ -701,7 +704,7 @@ input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; 
 .token { background:#1B2A4A; color:#FFD84D; font-size:12px; font-weight:700; padding:6px 12px; border-radius:10px; display:inline-flex; align-items:center; gap:4px; transform:rotate(-4deg); box-shadow:1px 2px 0 rgba(0,0,0,.15); white-space:nowrap; }
 .rb-artist-photo { width:100%; aspect-ratio:3/4; position:relative; }
 .rb-artist-photo-inner { width:100%; height:100%; border-radius:18px; overflow:hidden; box-shadow:0 8px 20px rgba(0,0,0,0.35); background:#1B2A4A; }
-.rb-artist-pill { position:absolute; left:50%; bottom:-16px; transform:translateX(-50%); background:#FDF6E3; border:2px solid #1B2A4A; border-radius:999px; padding:8px 16px; min-width:76%; max-width:94%; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.25); z-index:2; }
+.rb-artist-pill { position:absolute; left:50%; bottom:-16px; transform:translateX(-50%); background:#FDF6E3; border:2px solid #1B2A4A; border-radius:999px; padding:8px 16px; width:90%; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.25); z-index:2; }
 .rb-artist-pill .name { color:#1B2A4A; font-weight:800; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .rb-artist-pill .meta { color:#6b6248; font-weight:500; letter-spacing:0.03em; margin:1px 0 0; }
 .rb-artist-card-wrap { padding-bottom:18px; }
@@ -847,6 +850,8 @@ input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; 
    the more "charming" ones. auto-fit still fills leftover row space, just
    bounded by the max instead of stretching unbounded like the old 1fr did. */
 .rb-lineup-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 150px)); gap:12px; padding:16px 20px; background:transparent; }
+.rb-headliner-scroll { display:flex; gap:14px; overflow-x:auto; padding:6px 20px 24px; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; }
+.rb-headliner-scroll .rb-artist-card-wrap { flex:0 0 200px; scroll-snap-align:start; }
 /* Social link-out row under each lineup card (Spotify, etc.) */
 .rb-social-row { display:flex; justify-content:center; gap:8px; margin-top:30px; }
 .rb-social-row a { display:flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:50%; background:rgba(0,0,0,0.55); box-shadow:0 2px 6px rgba(0,0,0,0.3); }
@@ -1666,18 +1671,14 @@ def server(input, output, session):
 
         sections = []
 
-        # Headliners: their own row, sized down slightly from before so the
-        # whole group fits on one line instead of wrapping.
+        # Headliners: horizontal scroll strip instead of a wrapping grid —
+        # keeps every headliner card at full size (no shrinking to fit
+        # a row) regardless of how many there are; extra ones scroll into
+        # view instead of wrapping to a second line or getting squeezed.
         headliners = df[df["tier"] == "Headliner"]
         if len(headliners):
             cards = "".join(_lineup_grid_card(r, large=True) for r in headliners.to_dict("records"))
-            # Capped width (170-200px) instead of an unbounded 1fr, so cards
-            # stay noticeably bigger than the 160px normal-tier cards without
-            # stretching to fill the whole row when there are only a few of
-            # them. justify-content:center handles any leftover row space by
-            # centering the group instead of oversizing the cards.
-            grid_style = "grid-template-columns:repeat(auto-fit, minmax(170px, 200px));gap:12px;justify-content:center;"
-            sections.append(f'<div class="rb-lineup-grid" style="margin-top:20px;{grid_style}">{cards}</div>')
+            sections.append(f'<div class="rb-headliner-scroll" style="margin-top:20px">{cards}</div>')
 
         # Support + Rising: consolidated into a single shared grid (instead of
         # two separate stacked grids) so they flow together in the same lines.
