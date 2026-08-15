@@ -1482,7 +1482,11 @@ def server(input, output, session):
             blocks = []
             headliners = day_group[day_group["tier"] == "Headliner"].sort_values("start_time")
             if len(headliners):
-                blocks.append(_cards_grid(headliners, capped=True))
+                hl_time_label = f"{_fmt_time(headliners['start_time'].min())} \u2013 {_fmt_time(headliners['end_time'].max())}"
+                blocks.append(
+                    f'<p style="font-size:15px;font-weight:700;color:#E4D8C4;margin:0 0 8px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">{hl_time_label}</p>'
+                    + _cards_grid(headliners, capped=True)
+                )
 
             others = day_group[day_group["tier"] != "Headliner"].sort_values("start_time")
             for start_time, slot_group in others.groupby("start_time", sort=True):
@@ -1630,6 +1634,18 @@ def server(input, output, session):
             plan_shows_map.widget, df_added, ["Venue"],
             on_marker_click=lambda row: ui.update_select("pf_venue", selected=row["name"], session=session),
         )
+
+        # Keep every added venue in view: one venue flies/zooms straight to
+        # it, two-or-more fit the map's bounds to include all of them
+        # instead of only ever centering on a single pin.
+        if len(df_added) == 1:
+            row = df_added.iloc[0]
+            plan_shows_map.widget.center = (float(row["latitude"]), float(row["longitude"]))
+            plan_shows_map.widget.zoom = 15
+        elif len(df_added) > 1:
+            lats = df_added["latitude"].astype(float)
+            lons = df_added["longitude"].astype(float)
+            plan_shows_map.widget.fit_bounds([[lats.min(), lons.min()], [lats.max(), lons.max()]])
 
     @render_widget
     def stay_trip_map():
