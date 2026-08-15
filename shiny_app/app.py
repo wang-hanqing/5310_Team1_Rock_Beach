@@ -1127,11 +1127,12 @@ PAGE_6_INTRO = """
 </div>
 """
 
-# ── Page 7 · Trip Summary ───────────────────────────────────────────────────
-# Fully live now: header/shows/budget/footer are all @render.ui functions in
-# the server section below (trip_summary_header, trip_summary_shows,
-# trip_budget_summary, trip_summary_footer), reading real session +
-# database state instead of hardcoded placeholder text.
+# ── Page 7 · Trip Deed (was "Trip Summary") ────────────────────────────────
+# Fully live: header/shows/stay/dining/restaurants/activities/footer are all
+# @render.ui functions in the server section below, reading real session +
+# database state instead of hardcoded placeholder text. Budget estimate
+# lives on the Bank page now (folded into bank_content), not here — moved
+# so it sits next to the ticket-tier choice it actually helps inform.
 
 # ── Page 8 · The Bank ───────────────────────────────────────────────────────
 PAGE_8_TOP = """
@@ -1346,7 +1347,6 @@ app_ui = ui.page_fluid(
             ui.HTML(stepper_html(6)),
             ui.HTML(PAGE_8_TOP),
             ui.output_ui("bank_content"),
-            ui.output_ui("trip_budget_summary"),
             ui.HTML(PAGE_8_BOTTOM),
             class_="rb-shadow-page",
         )),
@@ -2110,25 +2110,48 @@ def server(input, output, session):
               <img src="{t_img}" style="width:100%;border-radius:14px;display:block;box-shadow:{shadow}">
             </div>'''
 
+        # Real trip summary, replacing the old hardcoded "2 shows added /
+        # Fri, Sat" placeholder block — same _compute_trip_budget() helper
+        # the standalone Budget Estimation section used to use, folded
+        # directly in here instead, since ui.output_ui can't be interleaved
+        # inside another render function's own returned HTML string.
+        line_items, total = _compute_trip_budget()
+        summary_rows = ""
+        for label, amount in line_items:
+            amount_html = f"${amount:,.0f}" if amount is not None else '<span style="color:#888">TBD</span>'
+            summary_rows += f'<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #eee"><span style="color:#888">{html.escape(label)}</span><span>{amount_html}</span></div>'
+
         return ui.HTML(f'''
         <div style="background:transparent;padding:20px 24px">
           <div style="display:flex;gap:18px;margin-bottom:22px;flex-wrap:wrap;justify-content:center">
             {cards}
           </div>
-          <p style="font-size:16px;font-weight:700;color:#FDF6E3;margin:0 0 12px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">Trip summary</p>
-          <div style="background:#fff;border:1px solid #ddd;border-radius:10px;padding:14px;margin-bottom:20px;font-size:14px">
-            <div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:#888">2 shows added</span><span>Fri, Sat</span></div>
-            <div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #eee"><span style="color:#888">Stay</span><span>Property placeholder</span></div>
-            <div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #eee"><span style="color:#888">1 chance card saved</span><span>Dining pick</span></div>
-            <div style="display:flex;justify-content:space-between;padding:10px 0 0;font-size:16px;font-weight:700;border-top:1px solid #ccc;margin-top:6px"><span>Total</span><span>${price}</span></div>
+          <p style="font-size:16px;font-weight:700;color:#FDF6E3;margin:0 0 12px;text-shadow:0 1px 4px rgba(0,0,0,0.4);text-transform:uppercase;letter-spacing:0.05em">Trip summary</p>
+          <div style="background:#fff;border:1px solid #ddd;border-radius:10px;padding:14px;margin-bottom:6px;font-size:14px">
+            {summary_rows}
+            <div style="display:flex;justify-content:space-between;padding:10px 0 0;font-size:16px;font-weight:700;border-top:1px solid #ccc;margin-top:6px"><span>Total</span><span>${total:,.0f}</span></div>
           </div>
-          <p style="font-size:16px;font-weight:700;color:#FDF6E3;margin:0 0 12px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">Billing</p>
-          <div style="background:#fff;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+          <p style="font-size:11px;color:#E4D8C4;opacity:.75;margin:0 0 20px">Stay is estimated for the full 3-night festival at the property's average nightly rate. Dining/activity prices shown are estimates, not final menu or admission prices.</p>
+          <p style="font-size:16px;font-weight:700;color:#FDF6E3;margin:0 0 12px;text-shadow:0 1px 4px rgba(0,0,0,0.4);text-transform:uppercase;letter-spacing:0.05em">Billing</p>
+          <div style="background:#fff;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px;margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+              <span style="font-size:11px;color:#888;font-weight:700;letter-spacing:0.04em">CARD DETAILS</span>
+              <span style="display:flex;gap:5px">
+                <span style="width:30px;height:19px;border-radius:3px;background:#1A56DB"></span>
+                <span style="width:30px;height:19px;border-radius:3px;background:#EB5A2E"></span>
+                <span style="width:30px;height:19px;border-radius:3px;background:#006FCF"></span>
+              </span>
+            </div>
             <input placeholder="Name on card" style="width:100%">
-            <input placeholder="Card number" style="width:100%">
-            <div style="display:flex;gap:10px"><input placeholder="MM / YY" style="flex:1"><input placeholder="CVC" style="flex:1"></div>
+            <input placeholder="1234 5678 9012 3456" inputmode="numeric" maxlength="19" style="width:100%">
+            <div style="display:flex;gap:10px">
+              <input placeholder="MM / YY" inputmode="numeric" maxlength="5" style="flex:1">
+              <input placeholder="CVC" inputmode="numeric" maxlength="4" style="flex:1">
+              <input placeholder="ZIP code" inputmode="numeric" maxlength="10" style="flex:1">
+            </div>
           </div>
-          <div onclick="rbPayClick()" class="rb-cta" style="text-align:center;background:#FFD84D;border:1.5px solid #1B2A4A;color:#1B2A4A;font-size:16px;font-weight:700;padding:14px;border-radius:12px">Pay ${price} and get tickets</div>
+          <p style="font-size:11px;color:#E4D8C4;opacity:.75;margin:0 0 20px">&#128274; Secure checkout &mdash; a course-project mock, no real payment is processed.</p>
+          <div onclick="rbPayClick()" class="rb-cta" style="text-align:center;background:#FFD84D;border:1.5px solid #1B2A4A;color:#1B2A4A;font-size:16px;font-weight:700;padding:14px;border-radius:12px">Pay ${total:,.0f} and get tickets</div>
         </div>
         <div style="background:transparent;padding:24px;text-align:center">
           <div style="background:#FDF6E3;border:1.5px solid #1B2A4A;border-radius:12px;padding:20px;max-width:340px;margin:0 auto">
@@ -2265,7 +2288,7 @@ def server(input, output, session):
             </div>'''
         return ui.HTML(f'''
         <div>
-          <p style="font-size:13px;font-weight:700;color:#1B2A4A;margin:0 0 10px;text-transform:uppercase;letter-spacing:0.05em">Dining &amp; Activities &middot; reserve separately</p>
+          <p style="font-size:13px;font-weight:700;color:#1B2A4A;margin:0 0 10px;text-transform:uppercase;letter-spacing:0.05em">Dining &amp; Activities</p>
           {body}
         </div>''')
 
@@ -2471,10 +2494,9 @@ def server(input, output, session):
         </div>''')
 
     def _compute_trip_budget():
-        """Shared by trip_budget_summary (display) and the email share
-        button (mailto body) so the two can never drift out of sync.
-        Returns (line_items, total) where line_items is a list of
-        (label, amount_or_None) tuples — amount is None for the stay row
+        """Used by bank_content's Trip Summary block. Returns (line_items,
+        total) where line_items is a list of (label, amount_or_None)
+        tuples — amount is None for the stay row
         when nothing's selected yet, so callers can render "TBD" instead
         of a fake $0.
 
@@ -2523,23 +2545,6 @@ def server(input, output, session):
         total = ticket_price + (stay_amount or 0) + dining_total + activity_total
         return line_items, total
 
-    @render.ui
-    def trip_budget_summary():
-        line_items, total = _compute_trip_budget()
-        rows_html = ""
-        for label, amount in line_items:
-            amount_html = f"${amount:,.0f}" if amount is not None else '<span style="color:#888">TBD</span>'
-            rows_html += f'<div style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid #eee"><span>{html.escape(label)}</span><span>{amount_html}</span></div>'
-        return ui.HTML(f'''
-        <div style="background:transparent;padding:16px 24px 4px">
-          <p style="font-size:13px;font-weight:700;color:#E4D8C4;margin:0 0 10px;text-shadow:0 1px 4px rgba(0,0,0,0.4);letter-spacing:0.05em">Estimated budget</p>
-          <div style="background:#fff;border:1px solid #ddd;border-radius:10px;padding:14px 16px;margin-bottom:12px;font-size:14px">
-            {rows_html}
-            <div style="display:flex;justify-content:space-between;padding:10px 0 0;margin-top:4px;border-top:1.5px solid #1B2A4A;font-size:17px;font-weight:800"><span>Total</span><span>${total:,.0f}</span></div>
-          </div>
-          <p style="font-size:11px;color:#E4D8C4;opacity:.75;margin:0 0 20px">Stay is estimated for the full 3-night festival (Aug 21-23) at the property's average nightly rate. Dining/activity prices shown are estimates, not final menu or admission prices.</p>
-        </div>
-        ''')
 
     @render.ui
     def trip_summary_footer():
