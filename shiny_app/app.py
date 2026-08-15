@@ -793,7 +793,7 @@ input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; 
 
 /* GO finale: the board-loop payoff at the END of Pass Go, after the daily
    posters, so landing on GO feels like completing a lap of the board */
-.rb-go-finale { background:transparent; padding:44px 24px; display:flex; flex-direction:column; align-items:center; gap:18px; }
+.rb-go-finale { background:transparent; padding:16px 24px 44px; display:flex; flex-direction:column; align-items:center; gap:18px; }
 .rb-go-finale-caption { font-size:16px; font-weight:700; color:#FDF6E3; text-align:center; max-width:360px; margin:0; }
 
 .rb-cta-banner { background:#1B2A4A; padding:28px; text-align:center; }
@@ -839,9 +839,9 @@ input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; 
    override this with their own larger 170-200px capped style) stand out as
    the more "charming" ones. auto-fit still fills leftover row space, just
    bounded by the max instead of stretching unbounded like the old 1fr did. */
-.rb-lineup-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 150px)); gap:12px; padding:16px 20px; background:transparent; }
+.rb-lineup-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 200px)); gap:14px; padding:16px 20px; background:transparent; justify-content:space-between; }
 .rb-headliner-scroll { display:flex; gap:14px; overflow-x:auto; padding:6px 20px 24px; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; }
-.rb-headliner-scroll .rb-artist-card-wrap { flex:0 0 200px; scroll-snap-align:start; }
+.rb-headliner-scroll .rb-artist-card-wrap { flex:1 1 160px; max-width:230px; scroll-snap-align:start; }
 /* Social link-out row under each lineup card (Spotify, etc.) */
 .rb-social-row { display:flex; justify-content:center; gap:8px; margin-top:6px; }
 .rb-social-row a { display:flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:50%; background:rgba(0,0,0,0.55); box-shadow:0 2px 6px rgba(0,0,0,0.3); }
@@ -850,9 +850,9 @@ input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; 
 /* Pass Go's circular GO button, a Shiny action button reskinned to match
    the original CSS-only circle */
 .rb-go-btn-wrap { position:relative; display:flex; align-items:center; gap:10px; }
-.rb-go-btn.btn.btn-default.action-button { all:unset; box-sizing:border-box; cursor:pointer; width:170px; height:170px; display:block; background:transparent !important; border:none !important; }
+.rb-go-btn.btn.btn-default.action-button { all:unset; box-sizing:border-box; cursor:pointer; width:220px; height:220px; display:block; background:transparent !important; border:none !important; }
 .rb-go-btn .action-label { display:block; width:100%; height:100%; }
-.rb-go-btn img { width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 8px 20px rgba(0,0,0,0.35)); transition:transform 0.15s ease; }
+.rb-go-btn img { width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 8px 20px rgba(0,0,0,0.35)) hue-rotate(-20deg) saturate(1.1); transition:transform 0.15s ease; }
 .rb-go-btn:hover img { transform:translateY(-2px) scale(1.03); }
 
 /* Plan Shows: filter bar, performance rows, jail-card conflict warning, map */
