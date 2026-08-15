@@ -157,22 +157,27 @@ def get_all_restaurants():
     where they exist — most rows will have discount_label/coupon_desc as
     None, and that's expected (only a handful of restaurants have coupons).
     Also joined to v_restaurant_badges (Hidden gem / Must try / Local hero
-    — computed from rating + review_count, see 09_restaurant_badges.sql)
-    and to location_zone for the zone filter/default. Includes country
-    (cuisine origin, e.g. 'Italian', 'Japanese') so the app can group the
-    list into sections instead of one flat wall of ~100 cards. Ordered
-    best-rated first within each group."""
+    — computed from rating + review_count, see 09_restaurant_badges.sql),
+    to location_zone for the zone filter/default, and to cuisine_type for
+    the "type" filter — deliberately the 4 broad cuisine_name groupings
+    (Quick Bites & Snacks / International/Ethnic Cuisine / Fine Dining &
+    Steakhouse / Bars, Brews & Casual), not the much more granular
+    food_category field (Bistro/Pub/Steakhouse/... — dozens of values),
+    which is still selected here for the card's own category text but no
+    longer drives the filter dropdown. Ordered best-rated first."""
     sql = """
         SELECT r.restaurant_id, r.name, r.food_category, r.price_range,
                r.est_cost_per_person_usd,
                r.opening_hours, r.address, r.rating, r.review_count,
                r.country, r.yelp_url, r.google_maps_url,
                r.zone_id, lz.zone_name,
+               r.cuisine_id, ct.cuisine_name,
                vb.badge,
                c.discount_label, c.coupon_desc
         FROM restaurant r
         LEFT JOIN coupon c ON c.item_type = 'restaurant' AND c.restaurant_id = r.restaurant_id
         LEFT JOIN location_zone lz ON lz.zone_id = r.zone_id
+        LEFT JOIN cuisine_type ct ON ct.cuisine_id = r.cuisine_id
         LEFT JOIN v_restaurant_badges vb ON vb.restaurant_id = r.restaurant_id
         ORDER BY r.rating DESC NULLS LAST, r.name
     """
@@ -183,13 +188,19 @@ def get_all_activities():
     """All activities for the Draw Chance page's browsable deal list —
     same shape/purpose as get_all_restaurants() above, just sourced from
     activity + activity_category instead of restaurant, with the same
-    left-join-to-coupon pattern so real discounts surface where they exist."""
+    left-join-to-coupon pattern so real discounts surface where they exist.
+    Also joined to location_zone for the zone filter, matching restaurant's
+    treatment. No google_maps_url/yelp_url exist for activity in this
+    schema — the app builds a Google Maps *search* link from the activity
+    name + location_desc at render time instead of relying on a stored URL."""
     sql = """
         SELECT a.activity_id, a.activity_name, a.description, a.location_desc,
                a.price_usd, a.duration_min, ac.category_name,
+               a.zone_id, lz.zone_name,
                c.discount_label, c.coupon_desc
         FROM activity a
         LEFT JOIN activity_category ac ON a.category_id = ac.category_id
+        LEFT JOIN location_zone lz ON lz.zone_id = a.zone_id
         LEFT JOIN coupon c ON c.item_type = 'activity' AND c.activity_id = a.activity_id
         ORDER BY a.activity_name
     """

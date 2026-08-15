@@ -20,6 +20,7 @@ those need per-attendee login/session state this project doesn't have yet.
 
 import html
 import re
+import urllib.parse
 from pathlib import Path
 import pandas as pd
 from shiny import App, ui, render, reactive
@@ -575,14 +576,36 @@ def _restaurant_card_html(row, is_fav: bool) -> str:
     </div>'''
 
 
+def _activity_price_bucket(price_usd) -> str:
+    """Maps activity.price_usd (a plain dollar amount — no existing $
+    string to match, unlike restaurant.price_range) onto the same $
+    notation used for restaurants. Thresholds picked off this dataset's
+    real range ($0-$85): 0=Free, then roughly even bands."""
+    if pd.isna(price_usd):
+        return ""
+    price_usd = float(price_usd)
+    if price_usd <= 0:
+        return "Free"
+    if price_usd <= 15:
+        return "$"
+    if price_usd <= 30:
+        return "$$"
+    if price_usd <= 60:
+        return "$$$"
+    return "$$$$"
+
+
 def _activity_card_html(row, is_fav: bool) -> str:
-    """One activity deal tile for the Draw Chance page — same tile template
-    as _restaurant_card_html above (reuses the same rb-restaurant-* classes,
-    since visually it's the same "deal card" component), sourced from
-    activity + activity_category instead of restaurant. No rating or
-    Yelp/Google links here (that data doesn't exist for activities); price
-    is bucketed into the same house-icon tiers off price_usd instead of a
-    $ range string."""
+    """One activity tile for the Draw Chance page — same tile template as
+    _restaurant_card_html (reuses the rb-restaurant-* classes, since
+    visually it's the same "deal card" component), sourced from activity
+    + activity_category instead of restaurant. Price now uses the same $
+    notation as restaurants (via _activity_price_bucket) instead of the
+    old house-icon tiers. No stored Google Maps/Yelp URL exists for
+    activity in this schema, so the Maps link is built as a live search
+    query (name + location) instead of a stored link — same destination
+    for the user, no new data needed. Category text and coupon/discount
+    info are deliberately not shown on this card anymore."""
     name = row.get("activity_name") or "Activity"
     category = row.get("category_name") or ""
     cat_img = _activity_category_image(category)
@@ -592,21 +615,15 @@ def _activity_card_html(row, is_fav: bool) -> str:
         gradient = FALLBACK_GRADIENTS[hash(name) % len(FALLBACK_GRADIENTS)]
         photo_bg = f"background:{gradient}"
 
-    price = row.get("price_usd")
-    if pd.notna(price):
-        tier = 1 if price <= 15 else 2 if price <= 30 else 3 if price <= 60 else 4
-    else:
-        tier = 1
-    houses_html = "".join('<span class="house"></span>' for _ in range(tier))
-
-    discount = row.get("discount_label")
-    if isinstance(discount, str) and discount.strip():
-        bottom_row = f'<span class="chip" style="background:#E85D7A;color:#FDF6E3;font-weight:800;font-size:12.5px;padding:4px 11px">{html.escape(discount)}</span>'
-    else:
-        bottom_row = houses_html
+    price_label = _activity_price_bucket(row.get("price_usd"))
 
     heart_class = "rb-fav-heart filled" if is_fav else "rb-fav-heart"
     heart = f'<span class="{heart_class}" onclick="rbClickChip(\'fav_activity_click\',\'{row["activity_id"]}\')">&#9829;</span>'
+
+    location_desc = row.get("location_desc") or ""
+    maps_query = urllib.parse.quote(f"{name} {location_desc}".strip())
+    maps_url = f"https://www.google.com/maps/search/?api=1&query={maps_query}"
+    links_row = f'<div class="rb-restaurant-tile-links"><a href="{maps_url}" target="_blank" rel="noopener" class="rb-restaurant-link gmaps" title="View on Google Maps">{GMAPS_ICON_SVG}Google Maps</a></div>'
 
     return f'''
     <div class="rb-restaurant-tile">
@@ -615,8 +632,8 @@ def _activity_card_html(row, is_fav: bool) -> str:
       </div>
       <div class="rb-restaurant-tile-body">
         <p class="rb-restaurant-name">{html.escape(name)}</p>
-        <p class="rb-restaurant-category">{html.escape(category)}</p>
-        <div class="rb-restaurant-tile-bottom">{bottom_row}</div>
+        <div class="rb-restaurant-meta-row"><span class="rb-restaurant-price">{price_label}</span></div>
+        {links_row}
       </div>
     </div>'''
 
@@ -1235,6 +1252,13 @@ app_ui = ui.page_fluid(
                                 output_widget("chance_map", height="500px"),
                                 style="border:2px solid #1B2A4A;border-radius:14px;overflow:hidden;box-shadow:0 3px 0 rgba(27,42,74,0.15)",
                             ),
+                            ui.HTML('''
+                            <div style="display:flex;gap:12px;flex-wrap:wrap;padding:8px 2px 0;font-size:11px;color:#FDF6E3;text-shadow:0 1px 4px rgba(0,0,0,0.4)">
+                              <span>&#128308; Venue</span>
+                              <span>&#128992; Dining</span>
+                              <span>&#128994; Activity</span>
+                            </div>
+                            '''),
                             style="width:340px;flex-shrink:0;position:sticky;top:16px",
                         ),
                         style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap",
@@ -1242,9 +1266,11 @@ app_ui = ui.page_fluid(
                     style="background:transparent;padding:8px 24px 24px",
                 ),
                 ui.div(
-                    ui.HTML('<p style="font-size:19px;font-weight:700;color:#FDF6E3;margin:0 0 12px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">More activities</p>'),
+                    ui.HTML('<p style="font-size:16px;font-weight:400;color:#FDF6E3;margin:0 0 12px;text-shadow:0 1px 4px rgba(0,0,0,0.4);text-transform:uppercase;letter-spacing:0.05em">More activities</p>'),
                     ui.div(
                         ui.input_select("activity_category_filter", "", choices={"": "All categories"}),
+                        ui.input_select("activity_zone", "", choices={"": "All zones"}),
+                        ui.input_select("activity_price", "", choices={"": "All prices", "Free": "Free", "$": "$", "$$": "$$", "$$$": "$$$", "$$$$": "$$$$"}),
                         class_="rb-filter-row",
                         style="padding:0 0 12px",
                     ),
@@ -1741,12 +1767,14 @@ def server(input, output, session):
             except Exception:
                 added_venues = set()
         favs_r = favorite_restaurant_ids.get()
+        favs_a = favorite_activity_ids.get()
 
         df_venues = df[(df["category"] == "Venue") & (df["name"].isin(added_venues))]
         df_dining = df[(df["category"] == "Dining") & (df["id_value"].astype(str).isin(favs_r))]
-        combined = pd.concat([df_venues, df_dining], ignore_index=True)
+        df_activity = df[(df["category"] == "Activity") & (df["id_value"].astype(str).isin(favs_a))]
+        combined = pd.concat([df_venues, df_dining, df_activity], ignore_index=True)
 
-        _redraw_map_markers(chance_map.widget, combined, ["Venue", "Dining"])
+        _redraw_map_markers(chance_map.widget, combined, ["Venue", "Dining", "Activity"])
 
     @render.ui
     def headliner_spotlight():
@@ -2217,11 +2245,11 @@ def server(input, output, session):
         if len(df) == 0:
             return
         countries = sorted(df["country"].dropna().unique().tolist())
-        categories = sorted(df["food_category"].dropna().unique().tolist())
+        cuisines = sorted(df["cuisine_name"].dropna().unique().tolist())
         country_choices = {"": "All countries"}
         country_choices.update({c: c for c in countries})
         category_choices = {"": "All types"}
-        category_choices.update({c: c for c in categories})
+        category_choices.update({c: c for c in cuisines})
         ui.update_select("rest_country", choices=country_choices, session=session)
         ui.update_select("rest_category", choices=category_choices, session=session)
 
@@ -2255,6 +2283,7 @@ def server(input, output, session):
         df = df.copy()
         df["country"] = df["country"].fillna("Other")
         df["food_category"] = df["food_category"].fillna("Other")
+        df["cuisine_name"] = df["cuisine_name"].fillna("Other")
 
         country_sel = (input.rest_country() or "").strip()
         category_sel = (input.rest_category() or "").strip()
@@ -2265,7 +2294,7 @@ def server(input, output, session):
         if country_sel:
             df = df[df["country"] == country_sel]
         if category_sel:
-            df = df[df["food_category"] == category_sel]
+            df = df[df["cuisine_name"] == category_sel]
         if price_sel:
             df = df[df["price_range"] == price_sel]
         if zone_sel:
@@ -2323,6 +2352,11 @@ def server(input, output, session):
         category_choices.update({c: c for c in categories})
         ui.update_select("activity_category_filter", choices=category_choices, session=session)
 
+        zones = df[["zone_id", "zone_name"]].dropna().drop_duplicates().sort_values("zone_id")
+        zone_choices = {"": "All zones"}
+        zone_choices.update({str(int(z)): n for z, n in zip(zones["zone_id"], zones["zone_name"])})
+        ui.update_select("activity_zone", choices=zone_choices, session=session)
+
     @reactive.effect
     @reactive.event(input.fav_activity_click)
     def _toggle_fav_activity():
@@ -2342,10 +2376,17 @@ def server(input, output, session):
         favs = favorite_activity_ids.get()
         df = df.copy()
         df["category_name"] = df["category_name"].fillna("Other")
+        df["price_bucket"] = df["price_usd"].apply(_activity_price_bucket)
 
         category_sel = (input.activity_category_filter() or "").strip()
+        zone_sel = (input.activity_zone() or "").strip()
+        price_sel = (input.activity_price() or "").strip()
         if category_sel:
             df = df[df["category_name"] == category_sel]
+        if zone_sel:
+            df = df[df["zone_id"] == int(zone_sel)]
+        if price_sel:
+            df = df[df["price_bucket"] == price_sel]
 
         if len(df) == 0:
             return ui.HTML('<div class="dashedbox" style="height:60px">No activities match that filter</div>')
