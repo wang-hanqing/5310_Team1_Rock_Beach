@@ -126,6 +126,22 @@ SPOTIFY_SVG = (
     '</svg>'
 )
 
+# Generic review-site / map-pin glyphs for the restaurant card's link-out
+# row — simple shapes in each service's associated color, not a trace of
+# either company's actual logo mark.
+YELP_ICON_SVG = (
+    '<svg width="14" height="14" viewBox="0 0 24 24" style="margin-right:4px;vertical-align:-2px">'
+    '<circle cx="12" cy="12" r="12" fill="#D32323"/>'
+    '<path d="M12 5l1.8 4.4 4.7.4-3.6 3.1 1.1 4.6L12 15.1l-4 2.4 1.1-4.6-3.6-3.1 4.7-.4z" fill="#fff"/>'
+    '</svg>'
+)
+GMAPS_ICON_SVG = (
+    '<svg width="14" height="14" viewBox="0 0 24 24" style="margin-right:4px;vertical-align:-2px">'
+    '<path d="M12 2C7.6 2 4 5.6 4 10c0 5.6 8 12 8 12s8-6.4 8-12c0-4.4-3.6-8-8-8z" fill="#34A853"/>'
+    '<circle cx="12" cy="10" r="3" fill="#fff"/>'
+    '</svg>'
+)
+
 
 def stepper_html(current: int) -> str:
     """Build the horizontal step tracker for step-pages (index 1..7 in the
@@ -510,54 +526,50 @@ def _stay_card(row, featured=False, is_selected=False) -> str:
 
 
 def _restaurant_card_html(row, is_fav: bool) -> str:
-    """One restaurant deal tile for the Draw Chance page's grid list — a
-    photo-block top (colorful gradient fallback, no restaurant photos exist
-    in the schema) with a heart + rating badge over it, then name/category
-    and a price row below. Price uses house icons off price_range's $ count
-    (same visual language as the Select Stay page's price tiers), except
-    for the handful of restaurants that have a real coupon — those show a
-    discount badge instead."""
+    """One restaurant tile for the Draw Chance page's grid list — a
+    photo-block top (colorful gradient fallback, no restaurant photos
+    exist in the schema) with the computed local-flavor badge (Hidden
+    gem / Must try / Local hero — v_restaurant_badges, rating +
+    review_count based) top-left and the favorite heart top-right, then
+    name / rating / category / price ($ notation, matching the raw
+    price_range data directly instead of a house-icon reinterpretation)
+    and Yelp/Google Maps link-out icons below. Coupon/discount info is
+    deliberately not shown here anymore — that's what the Chance card
+    draw is for; this list is just the browsable full set."""
     name = row.get("name") or "Restaurant"
     category = row.get("food_category") or ""
     photo_bg = f"background-image:url('{_restaurant_cuisine_image(category)}');background-size:cover;background-position:center"
 
-    rating_badge = ""
-    if pd.notna(row.get("rating")):
-        rating_badge = f'<span class="rb-restaurant-rating">&#9733; {row["rating"]:.1f}</span>'
-
-    dollar_count = max(1, min((row.get("price_range") or "$").count("$"), 4))
-    houses_html = "".join('<span class="house"></span>' for _ in range(dollar_count))
-
-    discount = row.get("discount_label")
-    if isinstance(discount, str) and discount.strip():
-        bottom_row = f'<span class="chip" style="background:#E85D7A;color:#FDF6E3;font-weight:800;font-size:12.5px;padding:4px 11px">{html.escape(discount)}</span>'
-    else:
-        bottom_row = houses_html
+    badge = row.get("badge")
+    badge_html = f'<span class="rb-restaurant-badge">{html.escape(badge)}</span>' if isinstance(badge, str) and badge.strip() else ""
 
     heart_class = "rb-fav-heart filled" if is_fav else "rb-fav-heart"
     heart = f'<span class="{heart_class}" onclick="rbClickChip(\'fav_restaurant_click\',\'{row["restaurant_id"]}\')">&#9829;</span>'
 
-    # External review links, shown as plain "Yelp" / "Google Map" words
-    # rather than the raw URL, opening in a new tab.
+    rating_line = ""
+    if pd.notna(row.get("rating")):
+        rating_line = f'<span class="rb-restaurant-rating-inline">&#9733; {row["rating"]:.1f}</span>'
+
+    price_label = row.get("price_range") or ""
+
     links = []
     yelp_url = row.get("yelp_url")
     if isinstance(yelp_url, str) and yelp_url.strip():
-        links.append(f'<a href="{html.escape(yelp_url, quote=True)}" target="_blank" rel="noopener" class="rb-restaurant-link">Yelp</a>')
+        links.append(f'<a href="{html.escape(yelp_url, quote=True)}" target="_blank" rel="noopener" class="rb-restaurant-link yelp" title="View on Yelp">{YELP_ICON_SVG}Yelp</a>')
     google_url = row.get("google_maps_url")
     if isinstance(google_url, str) and google_url.strip():
-        links.append(f'<a href="{html.escape(google_url, quote=True)}" target="_blank" rel="noopener" class="rb-restaurant-link">Google Map</a>')
-    links_row = f'<div class="rb-restaurant-tile-links">{" &middot; ".join(links)}</div>' if links else ""
+        links.append(f'<a href="{html.escape(google_url, quote=True)}" target="_blank" rel="noopener" class="rb-restaurant-link gmaps" title="View on Google Maps">{GMAPS_ICON_SVG}Google Maps</a>')
+    links_row = f'<div class="rb-restaurant-tile-links">{"".join(links)}</div>' if links else ""
 
     return f'''
     <div class="rb-restaurant-tile">
       <div class="rb-restaurant-photo-top" style="{photo_bg}">
-        {rating_badge}
+        {badge_html}
         {heart}
       </div>
       <div class="rb-restaurant-tile-body">
         <p class="rb-restaurant-name">{html.escape(name)}</p>
-        <p class="rb-restaurant-category">{html.escape(category)}</p>
-        <div class="rb-restaurant-tile-bottom">{bottom_row}</div>
+        <div class="rb-restaurant-meta-row">{rating_line}<span class="rb-restaurant-category">{html.escape(category)}</span><span class="rb-restaurant-price">{html.escape(price_label)}</span></div>
         {links_row}
       </div>
     </div>'''
@@ -839,14 +851,17 @@ input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; 
 .rb-restaurant-tile { background:#FDF6E3; border-radius:12px; overflow:hidden; display:flex; flex-direction:column; }
 .rb-restaurant-photo-top { position:relative; height:88px; display:flex; align-items:center; justify-content:center; }
 .rb-restaurant-emoji { font-size:26px; opacity:.55; }
-.rb-restaurant-rating { position:absolute; top:6px; left:6px; background:#fff; border-radius:10px; padding:3px 8px; font-size:13px; font-weight:700; color:#1B2A4A; }
+.rb-restaurant-badge { position:absolute; top:6px; left:6px; background:#7F77DD; color:#fff; border-radius:10px; padding:3px 9px; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; box-shadow:0 2px 6px rgba(0,0,0,0.25); }
 .rb-restaurant-tile-body { padding:9px 10px 12px; }
 .rb-restaurant-name { font-size:16px; font-weight:700; color:#1B2A4A; margin:0 0 3px; line-height:1.2; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-.rb-restaurant-category { font-size:13px; font-weight:700; color:#6b6b6b; margin:0 0 7px; }
+.rb-restaurant-meta-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 7px; }
+.rb-restaurant-rating-inline { font-size:13px; font-weight:700; color:#1B2A4A; }
+.rb-restaurant-category { font-size:12.5px; font-weight:600; color:#6b6b6b; }
+.rb-restaurant-price { font-size:12.5px; font-weight:800; color:#2C7A4B; }
 .rb-restaurant-tile-bottom { display:flex; align-items:center; min-height:12px; }
-.rb-restaurant-tile-links { margin-top:7px; }
-.rb-restaurant-link { font-size:11.5px; font-weight:800; color:#1B2A4A; text-decoration:underline; margin-right:10px; }
-.rb-restaurant-link:hover { color:#E85D7A; }
+.rb-restaurant-tile-links { display:flex; flex-wrap:wrap; gap:8px; margin-top:7px; }
+.rb-restaurant-link { display:inline-flex; align-items:center; font-size:11px; font-weight:700; color:#1B2A4A; text-decoration:none; background:rgba(27,42,74,0.08); padding:4px 9px; border-radius:8px; }
+.rb-restaurant-link:hover { background:rgba(27,42,74,0.16); }
 .rb-fav-heart { position:absolute; top:6px; right:6px; cursor:pointer; font-size:22px; color:rgba(255,255,255,0.9); line-height:1; background:rgba(0,0,0,0.2); border-radius:50%; width:34px; height:34px; display:flex; align-items:center; justify-content:center; }
 .rb-fav-heart.filled { color:#E85D7A; background:#fff; }
 
@@ -1053,7 +1068,6 @@ PAGE_4_INTRO = """
 PAGE_4_CTA = """
 <div style="background:transparent;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
   <span style="font-size:14px;color:#FDF6E3;text-shadow:0 1px 4px rgba(0,0,0,0.4)">Looks good? Move on to lodging.</span>
-  <span onclick="rbShow(6)" class="rb-cta" style="background:#FFD84D;color:#1B2A4A;font-size:14px;font-weight:700;padding:10px 18px;border-radius:14px">Continue to select stay</span>
 </div>
 """
 
@@ -1078,8 +1092,8 @@ PAGE_5_MAP_LABEL = """
 
 # ── Page 6 · Draw Chance (dining pick is LIVE + re-rollable) ───────────────
 PAGE_6_INTRO = """
-<div style="background:transparent;padding:20px 24px">
-  <p style="font-size:22px;font-weight:700;color:#FDF6E3;margin:0 0 14px;text-shadow:0 2px 8px rgba(0,0,0,0.4)">Draw chance</p>
+<div style="background:transparent;padding:16px 24px 4px">
+  <p style="font-size:16px;font-weight:400;color:#FDF6E3;margin:0;text-shadow:0 2px 8px rgba(0,0,0,0.4);text-transform:uppercase;letter-spacing:0.05em">Draw chance</p>
 </div>
 """
 
@@ -1201,15 +1215,30 @@ app_ui = ui.page_fluid(
                 ui.HTML(PAGE_6_INTRO),
                 ui.output_ui("chance_pick"),
                 ui.div(
-                    ui.HTML('<p style="font-size:19px;font-weight:700;color:#FDF6E3;margin:0 0 12px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">More restaurant deals</p>'),
+                    ui.HTML('<p style="font-size:16px;font-weight:400;color:#FDF6E3;margin:0 0 12px;text-shadow:0 1px 4px rgba(0,0,0,0.4);text-transform:uppercase;letter-spacing:0.05em">Restaurants</p>'),
                     ui.div(
-                        ui.input_select("rest_country", "", choices={"": "All countries"}),
-                        ui.input_select("rest_category", "", choices={"": "All types"}),
-                        class_="rb-filter-row",
-                        style="padding:0 0 12px",
+                        ui.div(
+                            ui.div(
+                                ui.input_select("rest_category", "", choices={"": "All types"}),
+                                ui.input_select("rest_country", "", choices={"": "All countries"}),
+                                ui.input_select("rest_price", "", choices={"": "All prices", "$": "$", "$$": "$$", "$$$": "$$$", "$$$$": "$$$$"}),
+                                ui.input_select("rest_zone", "", choices={"": "All zones"}, selected="1"),
+                                ui.input_select("rest_sort", "", choices={"rating_desc": "Rating: high to low", "rating_asc": "Rating: low to high"}),
+                                class_="rb-filter-row",
+                                style="padding:0 0 12px",
+                            ),
+                            ui.output_ui("restaurant_list"),
+                            style="flex:1;min-width:280px",
+                        ),
+                        ui.div(
+                            ui.div(
+                                output_widget("chance_map", height="500px"),
+                                style="border:2px solid #1B2A4A;border-radius:14px;overflow:hidden;box-shadow:0 3px 0 rgba(27,42,74,0.15)",
+                            ),
+                            style="width:340px;flex-shrink:0;position:sticky;top:16px",
+                        ),
+                        style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap",
                     ),
-                    ui.output_ui("restaurant_price_filter_chips"),
-                    ui.output_ui("restaurant_list"),
                     style="background:transparent;padding:8px 24px 24px",
                 ),
                 ui.div(
@@ -1684,6 +1713,41 @@ def server(input, output, session):
             return
         _redraw_map_markers(stay_trip_map.widget, df, input.stay_map_categories(), on_marker_click=_on_stay_map_click)
 
+    # ── Chance page map: added venues (from Plan Shows) + favorited
+    # restaurants (from this page's own heart-toggle), so the trip build-up
+    # is visible on a map here too instead of only on Plan Shows/Select
+    # Stay. Venue markers stay the plain red music-note pin (same as Plan
+    # Shows, deliberately — one venue pin style everywhere); restaurants
+    # get Dining's existing orange cutlery-icon style from
+    # MAP_CATEGORY_STYLE, so the two categories read as visually distinct
+    # on the same map.
+    @render_widget
+    def chance_map():
+        return LeafletMap(center=AC_MAP_CENTER, zoom=13, basemap=basemaps.CartoDB.Positron)
+
+    @reactive.effect
+    def _update_chance_map():
+        try:
+            df = map_locations()
+        except Exception:
+            return
+        _ = schedule_tick.get()  # re-run after every show Add/Remove too
+        attendee = current_attendee.get()
+        added_venues = set()
+        if attendee:
+            try:
+                sched = queries.get_attendee_schedule(attendee["id"])
+                added_venues = set(sched["stage_name"].dropna().unique().tolist())
+            except Exception:
+                added_venues = set()
+        favs_r = favorite_restaurant_ids.get()
+
+        df_venues = df[(df["category"] == "Venue") & (df["name"].isin(added_venues))]
+        df_dining = df[(df["category"] == "Dining") & (df["id_value"].astype(str).isin(favs_r))]
+        combined = pd.concat([df_venues, df_dining], ignore_index=True)
+
+        _redraw_map_markers(chance_map.widget, combined, ["Venue", "Dining"])
+
     @render.ui
     def headliner_spotlight():
         try:
@@ -2082,7 +2146,7 @@ def server(input, output, session):
             return ui.div(
                 ui.HTML(card_html),
                 ui.input_action_button("draw_again", ui.TagList(ui.HTML(DICE_SVG_DARK), " Draw again"), class_="rb-draw-btn"),
-                style="background:transparent;padding:24px;text-align:center",
+                style="background:transparent;padding:4px 24px 24px;text-align:center",
             )
         except Exception as e:
             import traceback
@@ -2133,10 +2197,6 @@ def server(input, output, session):
     # shared schema yet — but it's enough to make the hearted restaurants
     # actually show up on the Summary page like you asked.
     favorite_restaurant_ids = reactive.value(set())
-    # Price filter is multi-select (dollar-sign count, 1-4) via the same
-    # house-icon chip pattern as the Stay page's price tier — defaults to
-    # all four selected, i.e. no filter applied.
-    restaurant_price_tiers = reactive.value({1, 2, 3, 4})
 
     @reactive.calc
     def all_restaurants_df():
@@ -2145,10 +2205,12 @@ def server(input, output, session):
         except Exception:
             return pd.DataFrame()
 
-    # Country/Type dropdowns start empty ("All ...") and get their real
-    # choices filled in here once the live restaurant data loads — Shiny's
-    # input_select needs static choices at UI-build time, so this is the
-    # dynamic-population step for values that only exist in the DB.
+    # Country/Type/Zone dropdowns start with placeholder choices and get
+    # their real values filled in here once the live restaurant data
+    # loads — Shiny's input_select needs static choices at UI-build time,
+    # so this is the dynamic-population step for values that only exist
+    # in the DB. Zone defaults to "1" (Boardwalk/Casino) once real zone
+    # choices are in, rather than showing all ~100 restaurants at once.
     @reactive.effect
     def _populate_restaurant_filters():
         df = all_restaurants_df()
@@ -2163,6 +2225,11 @@ def server(input, output, session):
         ui.update_select("rest_country", choices=country_choices, session=session)
         ui.update_select("rest_category", choices=category_choices, session=session)
 
+        zones = df[["zone_id", "zone_name"]].dropna().drop_duplicates().sort_values("zone_id")
+        zone_choices = {"": "All zones"}
+        zone_choices.update({str(int(z)): n for z, n in zip(zones["zone_id"], zones["zone_name"])})
+        ui.update_select("rest_zone", choices=zone_choices, selected="1", session=session)
+
     @reactive.effect
     @reactive.event(input.fav_restaurant_click)
     def _toggle_fav_restaurant():
@@ -2174,38 +2241,13 @@ def server(input, output, session):
             current.add(clicked)
         favorite_restaurant_ids.set(current)
 
-    @reactive.effect
-    @reactive.event(input.rest_price_click)
-    def _toggle_rest_price():
-        clicked = int(input.rest_price_click())
-        current = set(restaurant_price_tiers.get())
-        if clicked in current:
-            current.discard(clicked)
-        else:
-            current.add(clicked)
-        restaurant_price_tiers.set(current)
-
-    @render.ui
-    def restaurant_price_filter_chips():
-        price_sel = restaurant_price_tiers.get()
-        chips = ""
-        for tier in (1, 2, 3, 4):
-            active = tier in price_sel
-            style = "background:#FFD84D;color:#1B2A4A;font-weight:700" if active else "background:#FDF6E3;border:1px solid #ccc;color:#666"
-            house_icons = "".join('<span class="house" style="transform:scale(1.3)"></span>' for _ in range(tier))
-            chips += f'<span class="chip rb-cta" style="{style};cursor:pointer;font-size:19px;padding:11px 18px" onclick="rbClickChip(\'rest_price_click\',\'{tier}\')">{house_icons}</span>'
-        return ui.HTML(f'''
-        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:0 0 14px">
-          <span style="font-size:18px;color:#FDF6E3;text-shadow:0 1px 4px rgba(0,0,0,0.4)">Price:</span>
-          {chips}
-        </div>''')
-
     @render.ui
     def restaurant_list():
         # Filter-driven instead of grouped-by-country — with ~100
         # restaurants, splitting into country sections still meant a lot of
-        # scrolling. Country / Type dropdowns + price chips narrow the list
-        # down directly instead.
+        # scrolling. Country / Type / Price / Zone dropdowns narrow the
+        # list down directly, defaulting to just Zone 1 so a first-time
+        # visitor isn't handed all ~100 restaurants at once.
         df = all_restaurants_df()
         if len(df) == 0:
             return ui.HTML('<div class="dashedbox" style="height:60px">Couldn\'t load restaurants right now</div>')
@@ -2216,16 +2258,20 @@ def server(input, output, session):
 
         country_sel = (input.rest_country() or "").strip()
         category_sel = (input.rest_category() or "").strip()
-        price_sel = restaurant_price_tiers.get()
+        price_sel = (input.rest_price() or "").strip()
+        zone_sel = (input.rest_zone() or "").strip()
+        sort_sel = (input.rest_sort() or "rating_desc").strip()
 
         if country_sel:
             df = df[df["country"] == country_sel]
         if category_sel:
             df = df[df["food_category"] == category_sel]
-        if price_sel and len(price_sel) < 4:
-            def _dollar_count(pr):
-                return max(1, min((pr or "$").count("$"), 4))
-            df = df[df["price_range"].apply(_dollar_count).isin(price_sel)]
+        if price_sel:
+            df = df[df["price_range"] == price_sel]
+        if zone_sel:
+            df = df[df["zone_id"] == int(zone_sel)]
+
+        df = df.sort_values("rating", ascending=(sort_sel == "rating_asc"), na_position="last")
 
         if len(df) == 0:
             return ui.HTML('<div class="dashedbox" style="height:60px">No restaurants match those filters</div>')

@@ -156,17 +156,24 @@ def get_all_restaurants():
     left-joined to its coupon (if it has one) so real discounts show up
     where they exist — most rows will have discount_label/coupon_desc as
     None, and that's expected (only a handful of restaurants have coupons).
-    Includes country (cuisine origin, e.g. 'Italian', 'Japanese') so the
-    app can group the list into sections instead of one flat wall of
-    ~100 cards. Ordered best-rated first within each group."""
+    Also joined to v_restaurant_badges (Hidden gem / Must try / Local hero
+    — computed from rating + review_count, see 09_restaurant_badges.sql)
+    and to location_zone for the zone filter/default. Includes country
+    (cuisine origin, e.g. 'Italian', 'Japanese') so the app can group the
+    list into sections instead of one flat wall of ~100 cards. Ordered
+    best-rated first within each group."""
     sql = """
         SELECT r.restaurant_id, r.name, r.food_category, r.price_range,
                r.est_cost_per_person_usd,
                r.opening_hours, r.address, r.rating, r.review_count,
                r.country, r.yelp_url, r.google_maps_url,
+               r.zone_id, lz.zone_name,
+               vb.badge,
                c.discount_label, c.coupon_desc
         FROM restaurant r
         LEFT JOIN coupon c ON c.item_type = 'restaurant' AND c.restaurant_id = r.restaurant_id
+        LEFT JOIN location_zone lz ON lz.zone_id = r.zone_id
+        LEFT JOIN v_restaurant_badges vb ON vb.restaurant_id = r.restaurant_id
         ORDER BY r.rating DESC NULLS LAST, r.name
     """
     return run_query(sql)
