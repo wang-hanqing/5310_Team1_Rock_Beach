@@ -117,13 +117,6 @@ BUS_SVG_LG = BUS_SVG.replace('width="14" height="14"', 'width="22" height="22"')
 # Light-colored dice (not the dark variant) since the stepper now sits on
 # the dark shadow-photo background instead of white.
 DICE_SVG_LG = DICE_SVG.replace('width="11" height="11"', 'width="16" height="16"')
-GO_ICON_SVG = (
-    '<svg width="28" height="28" viewBox="0 0 24 24" fill="none">'
-    '<rect x="3" y="3" width="18" height="18" rx="4" stroke="#1B2A4A" stroke-width="2"/>'
-    '<circle cx="8" cy="8" r="1.6" fill="#1B2A4A"/><circle cx="16" cy="8" r="1.6" fill="#1B2A4A"/>'
-    '<circle cx="12" cy="12" r="1.6" fill="#1B2A4A"/><circle cx="8" cy="16" r="1.6" fill="#1B2A4A"/>'
-    '<circle cx="16" cy="16" r="1.6" fill="#1B2A4A"/></svg>'
-)
 
 # Spotify logo mark, used as a small link-out button under each Lineup card.
 SPOTIFY_SVG = (
@@ -294,16 +287,16 @@ def _artist_photo_src(row):
 
 
 def _lineup_grid_card(row, large=False) -> str:
-    """One portrait card for the photo-grid Lineup page: rounded photo
-    (or a colorful gradient fallback if no photo) with its own drop
-    shadow so it separates cleanly from whatever's behind it, and a
-    floating cream pill overlapping the photo's bottom edge holding the
-    artist name + genre — same visual language KCON LA's lineup page
-    uses, works over a busy/textured page background without needing a
-    dark gradient painted onto the photo itself.
-    `large=True` (used for the Headliner tier) scales the pill and text
-    up so headliners visually pop more than support/rising — sizing is
-    the only difference, tier position in the page (its own row, above
+    """One card for the photo-grid Lineup page: cream card with a navy
+    border (matches the Monopoly deed-card look used elsewhere in this
+    app), a square photo inset with a small margin (or a colorful
+    gradient fallback if no photo), and the artist name + genre as plain
+    text below the photo on the cream background — no dark gradient or
+    overlaid text needed, since the caption isn't sitting on top of the
+    image anymore.
+    `large=True` (used for the Headliner tier) scales the text up so
+    headliners visually pop more than support/rising — sizing is the
+    only difference, tier position in the page (its own row, above
     support/rising) still does the actual signaling of who's a
     headliner, so there's no separate badge on top of that."""
     name = row["artist_name"]
@@ -324,35 +317,32 @@ def _lineup_grid_card(row, large=False) -> str:
     social_row = ""
     if isinstance(spotify_url, str) and spotify_url.strip():
         social_row = f'''
-        <div class="rb-social-row">
+        <div class="rb-social-row" style="margin-top:4px">
           <a href="{spotify_url}" target="_blank" rel="noopener" title="Listen on Spotify">{SPOTIFY_SVG}</a>
         </div>'''
 
     return f'''
     <div class="rb-artist-card-wrap">
-      <div class="rb-artist-photo">
+      <div class="rb-artist-photo-frame">
         <div class="rb-artist-photo-inner">{bg_layer}</div>
-        <div class="rb-artist-pill">
-          <p class="name" style="font-size:{name_size}">{name}</p>
-          <p class="meta" style="font-size:{meta_size}">{meta}</p>
-        </div>
       </div>
-      {social_row}
+      <div class="rb-artist-caption">
+        <p class="name" style="font-size:{name_size}" title="{html.escape(name)}">{name}</p>
+        <p class="meta" style="font-size:{meta_size}" title="{html.escape(meta)}">{meta}</p>
+        {social_row}
+      </div>
     </div>'''
 
 
 def _plan_show_card(row, added: bool) -> str:
-    """One photo card for the Plan Shows lineup-style grid — same visual
-    language as the Lineup page's v2 cards (rounded photo, floating
-    cream pill), captioned with artist name + stage. Time isn't repeated
-    here — each grid is already grouped under its own time-slot header
-    right above it, so putting the time on the card too was redundant,
-    and worse, made pills different heights depending on how long the
-    venue name was (e.g. "Atlantic City Beach Grounds" wrapping to a
-    3rd line vs "Ovation Hall" fitting on 1), which threw off row
-    alignment across cards. Plus an Add / Landed-here action badge in
-    the photo's top-right corner (separate from the bottom pill, so the
-    two don't compete for the same space)."""
+    """One card for the Plan Shows lineup-style grid — same A+B card
+    language as the Lineup page (cream card, navy border, inset square
+    photo, plain-text caption below on the cream background), captioned
+    with artist name + stage. Time isn't repeated here — each grid is
+    already grouped under its own time-slot header right above it, so
+    putting the time on the card too was redundant, and worse, made
+    captions different heights depending on venue name length. Plus an
+    Add / Landed-here action badge in the photo's top-right corner."""
     name = row["artist_name"]
     img_src = _artist_photo_src(row)
     if img_src:
@@ -364,22 +354,22 @@ def _plan_show_card(row, added: bool) -> str:
     if added:
         # Clickable version of the "Landed" stamp — hover swaps the label to
         # "Remove" so it's clear it can be undone, click fires rbRemoveShow.
-        action = f'''<span class="token rb-landed-token" style="position:absolute;top:8px;right:8px;z-index:3" onclick="rbRemoveShow({row["performance_id"]})" title="Click to remove from your schedule">
+        action = f'''<span class="token rb-landed-token" style="position:absolute;top:6px;right:6px;z-index:3" onclick="rbRemoveShow({row["performance_id"]})" title="Click to remove from your schedule">
           <span class="rb-landed-default-text">&#10003; Landed</span>
           <span class="rb-landed-hover-text">&#10005; Remove</span>
         </span>'''
     else:
-        action = f'<span class="rb-add-btn" style="position:absolute;top:8px;right:8px;z-index:3;font-size:11px;padding:6px 12px" onclick="rbAddShow({row["performance_id"]})">Add</span>'
+        action = f'<span class="rb-add-btn" style="position:absolute;top:6px;right:6px;z-index:3;font-size:11px;padding:6px 12px" onclick="rbAddShow({row["performance_id"]})">Add</span>'
 
     return f'''
     <div class="rb-artist-card-wrap">
-      <div class="rb-artist-photo">
+      <div class="rb-artist-photo-frame">
         <div class="rb-artist-photo-inner">{bg_layer}</div>
         {action}
-        <div class="rb-artist-pill">
-          <p class="name" style="font-size:13px">{name}</p>
-          <p class="meta" style="font-size:10px">{row['stage_name']}</p>
-        </div>
+      </div>
+      <div class="rb-artist-caption">
+        <p class="name" style="font-size:13px" title="{html.escape(name)}">{name}</p>
+        <p class="meta" style="font-size:10px" title="{html.escape(row['stage_name'])}">{row['stage_name']}</p>
       </div>
     </div>'''
 
@@ -702,12 +692,12 @@ body { font-family:var(--font-body); background:#fff; margin:0; padding:0; overf
 input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; font-family:inherit; }
 .dashedbox { background:rgba(255,255,255,0.85); border:1.5px dashed #1B2A4A; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#1B2A4A; opacity:.75; font-size:13px; }
 .token { background:#1B2A4A; color:#FFD84D; font-size:12px; font-weight:700; padding:6px 12px; border-radius:10px; display:inline-flex; align-items:center; gap:4px; transform:rotate(-4deg); box-shadow:1px 2px 0 rgba(0,0,0,.15); white-space:nowrap; }
-.rb-artist-photo { width:100%; aspect-ratio:3/4; position:relative; }
-.rb-artist-photo-inner { width:100%; height:100%; border-radius:18px; overflow:hidden; box-shadow:0 8px 20px rgba(0,0,0,0.35); background:#1B2A4A; }
-.rb-artist-pill { position:absolute; left:50%; bottom:-16px; transform:translateX(-50%); background:#FDF6E3; border:2px solid #1B2A4A; border-radius:999px; padding:8px 16px; width:90%; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.25); z-index:2; }
-.rb-artist-pill .name { color:#1B2A4A; font-weight:800; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.rb-artist-pill .meta { color:#6b6248; font-weight:500; letter-spacing:0.03em; margin:1px 0 0; }
-.rb-artist-card-wrap { padding-bottom:18px; }
+.rb-artist-card-wrap { background:#FDF6E3; border:2px solid #1B2A4A; border-radius:14px; overflow:hidden; box-shadow:0 3px 0 rgba(27,42,74,0.15); }
+.rb-artist-photo-frame { padding:8px 8px 0; position:relative; }
+.rb-artist-photo-inner { width:100%; aspect-ratio:1/1; border-radius:8px; overflow:hidden; background:#1B2A4A; }
+.rb-artist-caption { padding:8px 10px 10px; text-align:center; }
+.rb-artist-caption .name { color:#1B2A4A; font-weight:800; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rb-artist-caption .meta { color:#6b6248; font-weight:500; letter-spacing:0.03em; margin:1px 0 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 /* Plan Shows: "Landed" stamp on an already-added show, made clickable so
    attendees can change their mind — hover swaps the label + color to a
@@ -853,7 +843,7 @@ input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; 
 .rb-headliner-scroll { display:flex; gap:14px; overflow-x:auto; padding:6px 20px 24px; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; }
 .rb-headliner-scroll .rb-artist-card-wrap { flex:0 0 200px; scroll-snap-align:start; }
 /* Social link-out row under each lineup card (Spotify, etc.) */
-.rb-social-row { display:flex; justify-content:center; gap:8px; margin-top:30px; }
+.rb-social-row { display:flex; justify-content:center; gap:8px; margin-top:6px; }
 .rb-social-row a { display:flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:50%; background:rgba(0,0,0,0.55); box-shadow:0 2px 6px rgba(0,0,0,0.3); }
 .rb-social-row a:hover { background:rgba(0,0,0,0.8); transform:scale(1.06); }
 
@@ -864,7 +854,6 @@ input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; 
 .rb-go-btn .action-label { display:block; width:100%; height:100%; }
 .rb-go-btn img { width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 8px 20px rgba(0,0,0,0.35)); transition:transform 0.15s ease; }
 .rb-go-btn:hover img { transform:translateY(-2px) scale(1.03); }
-.rb-go-dice-badge { width:44px; height:44px; background:#FFD84D; border:3px solid #1B2A4A; border-radius:10px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,0.3); transform:rotate(-8deg); flex-shrink:0; }
 
 /* Plan Shows: filter bar, performance rows, jail-card conflict warning, map */
 .rb-filter-row { display:flex; gap:10px; padding:4px 24px 18px; flex-wrap:wrap; align-items:center; }
@@ -1138,7 +1127,6 @@ app_ui = ui.page_fluid(
                 ui.div(
                     ui.div(
                         ui.input_action_button("join_go", ui.HTML('<img src="go_button_3d_transparent_v2.gif" alt="GO">'), class_="rb-go-btn"),
-                        ui.HTML(f'<div class="rb-go-dice-badge">{GO_ICON_SVG}</div>'),
                         class_="rb-go-btn-wrap",
                     ),
                     class_="rb-go-finale",
