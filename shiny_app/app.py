@@ -681,6 +681,7 @@ def _chance_card_html(row) -> str:
     discount_attr = html.escape(discount, quote=True)
     desc_attr = html.escape(desc, quote=True)
     category_attr = html.escape(category, quote=True)
+    item_id_attr = html.escape(str(row.get("item_id") or ""), quote=True)
 
     # Wrapped in a 3D flip container: starts showing the navy "?" back face,
     # then rotates to reveal the real card. It's pure CSS (rbCardFlip
@@ -704,7 +705,7 @@ def _chance_card_html(row) -> str:
         </div>
       </div>
     </div>
-    <div class="rb-cta" style="display:inline-block;background:#FFD84D;border:1.5px solid #1B2A4A;color:#1B2A4A;font-size:14px;font-weight:700;padding:10px 22px;border-radius:16px;margin-top:16px;cursor:pointer" data-name="{name_attr}" data-discount="{discount_attr}" data-desc="{desc_attr}" data-category="{category_attr}" onclick="rbSaveChance(this)">Save</div>'''
+    <div class="rb-cta" style="display:inline-block;background:#FFD84D;border:1.5px solid #1B2A4A;color:#1B2A4A;font-size:14px;font-weight:700;padding:10px 22px;border-radius:16px;margin-top:16px;cursor:pointer" data-name="{name_attr}" data-discount="{discount_attr}" data-desc="{desc_attr}" data-category="{category_attr}" data-id="{item_id_attr}" onclick="rbSaveChance(this)">Save</div>'''
 
 
 def _map_html(points, legend, height=150) -> str:
@@ -881,7 +882,7 @@ input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; 
 .rb-chance-card-overlay { position:absolute; left:6%; right:6%; top:62%; bottom:6%; background:#F3EAD6; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:8px 10px; text-align:center; overflow:hidden; }
 
 /* Draw Chance's browsable restaurant deal list, below the flip card. */
-.rb-restaurant-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; }
+.rb-restaurant-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 190px)); gap:12px; }
 .rb-restaurant-tile { background:#FDF6E3; border-radius:12px; overflow:hidden; display:flex; flex-direction:column; }
 .rb-restaurant-photo-top { position:relative; height:88px; display:flex; align-items:center; justify-content:center; }
 .rb-restaurant-emoji { font-size:26px; opacity:.55; }
@@ -1035,7 +1036,8 @@ function rbSaveChance(el){
       name: el.dataset.name,
       discount: el.dataset.discount,
       desc: el.dataset.desc,
-      category: el.dataset.category
+      category: el.dataset.category,
+      id: el.dataset.id
     }, {priority: 'event'});
   }
   rbShow(7);
@@ -1108,7 +1110,7 @@ PAGE_4_CTA = """
 # ── Page 5 · Select Stay (property cards are LIVE, rest is static) ─────────
 PAGE_5_TITLE = """
 <div style="background:transparent;padding:20px 24px 4px">
-  <p style="font-size:22px;font-weight:700;color:#FDF6E3;margin:0;text-shadow:0 2px 8px rgba(0,0,0,0.4)">Select stay</p>
+  <p style="font-size:16px;font-weight:400;color:#FDF6E3;margin:0;text-shadow:0 2px 8px rgba(0,0,0,0.4);text-transform:uppercase;letter-spacing:0.05em">Select stay</p>
 </div>
 """
 
@@ -1134,7 +1136,7 @@ PAGE_6_INTRO = """
 # ── Page 8 · The Bank ───────────────────────────────────────────────────────
 PAGE_8_TOP = """
 <div style="background:transparent;padding:20px 24px">
-  <p style="font-size:22px;font-weight:700;color:#FDF6E3;margin:0 0 6px;text-shadow:0 2px 8px rgba(0,0,0,0.4)">The bank</p>
+  <p style="font-size:16px;font-weight:400;color:#FDF6E3;margin:0 0 6px;text-shadow:0 2px 8px rgba(0,0,0,0.4);text-transform:uppercase;letter-spacing:0.05em">The bank</p>
   <p style="font-size:14px;color:#E4D8C4;margin:0;text-shadow:0 1px 4px rgba(0,0,0,0.4)">Choose your ticket tier</p>
 </div>
 """
@@ -1329,12 +1331,14 @@ app_ui = ui.page_fluid(
             ui.HTML(stepper_html(5)),
             ui.output_ui("trip_summary_header"),
             ui.output_ui("trip_progress_icons"),
-            ui.output_ui("trip_summary_shows"),
-            ui.output_ui("stay_summary"),
-            ui.output_ui("chance_save_summary"),
-            ui.output_ui("favorite_restaurants_summary"),
-            ui.output_ui("favorite_activities_summary"),
-            ui.output_ui("trip_budget_summary"),
+            ui.div(
+                ui.output_ui("trip_summary_shows"),
+                ui.output_ui("stay_summary"),
+                ui.output_ui("chance_save_summary"),
+                ui.output_ui("favorite_restaurants_summary"),
+                ui.output_ui("favorite_activities_summary"),
+                style="background:#FDF6E3;border-radius:14px;margin:0 24px 20px;padding:24px",
+            ),
             ui.output_ui("trip_summary_footer"),
             class_="rb-shadow-page",
         )),
@@ -1342,6 +1346,7 @@ app_ui = ui.page_fluid(
             ui.HTML(stepper_html(6)),
             ui.HTML(PAGE_8_TOP),
             ui.output_ui("bank_content"),
+            ui.output_ui("trip_budget_summary"),
             ui.HTML(PAGE_8_BOTTOM),
             class_="rb-shadow-page",
         )),
@@ -1978,8 +1983,8 @@ def server(input, output, session):
               <span class="token" style="position:static">&#10003; Selected</span>
             </div>'''
         return ui.HTML(f'''
-        <div style="background:transparent;padding:0 24px">
-          <p style="font-size:13px;font-weight:700;color:#E4D8C4;margin:0 0 10px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">STAY &middot; reserve separately</p>
+        <div>
+          <p style="font-size:13px;font-weight:700;color:#1B2A4A;margin:0 0 10px;text-transform:uppercase;letter-spacing:0.05em">Stay</p>
           {body}
         </div>''')
 
@@ -1994,8 +1999,7 @@ def server(input, output, session):
         greeting = f"Your trip so far, {html.escape(name)}" if name else "Your trip so far"
         return ui.HTML(f'''
         <div style="background:transparent;padding:20px 24px">
-          <p style="font-size:22px;font-weight:700;color:#FDF6E3;margin:0 0 6px;text-shadow:0 2px 8px rgba(0,0,0,0.4)">{greeting}</p>
-          <p style="font-size:14px;color:#E4D8C4;margin:0 0 14px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">Last check before you head to the bank</p>
+          <p style="font-size:16px;font-weight:400;color:#FDF6E3;margin:0;text-shadow:0 2px 8px rgba(0,0,0,0.4);text-transform:uppercase;letter-spacing:0.05em">{greeting}</p>
         </div>
         ''')
 
@@ -2016,12 +2020,13 @@ def server(input, output, session):
             if len(df):
                 for day_number, group in df.groupby("day_number"):
                     times = ", ".join(_fmt_time(t) for t in group["start_time"])
-                    rows_html += f'<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #eee"><span>Day {day_number} &middot; {len(group)} show{"s" if len(group) != 1 else ""}</span><span style="color:#888">{times}</span></div>'
+                    day_label = DAY_POSTER_LABELS.get(int(day_number), f"Day {day_number}")
+                    rows_html += f'<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #eee"><span>{day_label} &middot; {len(group)} show{"s" if len(group) != 1 else ""}</span><span style="color:#888">{times}</span></div>'
         if not rows_html:
             rows_html = '<div style="padding:6px 0;color:#888">No shows added yet &mdash; head to Plan Shows to pick some</div>'
         return ui.HTML(f'''
-        <div style="background:transparent;padding:20px 24px">
-          <p style="font-size:13px;font-weight:700;color:#E4D8C4;margin:0 0 10px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">SHOWS &middot; included with ticket</p>
+        <div>
+          <p style="font-size:13px;font-weight:700;color:#1B2A4A;margin:0 0 10px;text-transform:uppercase;letter-spacing:0.05em">Shows</p>
           <div style="background:#fff;border:1px solid #ddd;border-radius:10px;padding:14px;margin-bottom:20px;font-size:14px">
             {rows_html}
           </div>
@@ -2043,7 +2048,11 @@ def server(input, output, session):
             except Exception:
                 shows_done = False
         stay_done = selected_stay.get() is not None
-        dining_done = saved_chance_pick.get() is not None
+        # Was tied to whether a chance card had been drawn (saved_chance_pick)
+        # — that's a lucky/random pick, not the same thing as actually
+        # having favorited a restaurant. Now matches activity_done's own
+        # logic: real progress is favoriting something, not drawing a card.
+        dining_done = len(favorite_restaurant_ids.get()) > 0
         activity_done = len(favorite_activity_ids.get()) > 0
 
         items = [
@@ -2057,9 +2066,14 @@ def server(input, output, session):
             opacity = "1" if done else ".45"
             badge_color = "background:#2EC4B6;color:#04342C" if done else "background:#F0997B;color:#4A1B0C"
             badge_symbol = "&#10003;" if done else "?"
+            # Fixed aspect-ratio + object-fit:cover so all 4 cards render at
+            # identical final dimensions — the 4 source jpgs each have their
+            # own natural proportions (the Ticket art is taller/narrower
+            # than the illustrated Stay/Dining/Activity cards), which
+            # produced visibly different heights when only width was fixed.
             tiles += f'''
-            <div style="position:relative;opacity:{opacity}">
-              <img src="{img}" style="width:240px;border-radius:20px;display:block;box-shadow:0 10px 26px rgba(0,0,0,0.35)">
+            <div style="position:relative;opacity:{opacity};width:240px">
+              <img src="{img}" style="width:240px;aspect-ratio:3/4;object-fit:cover;border-radius:20px;display:block;box-shadow:0 10px 26px rgba(0,0,0,0.35)">
               <span style="position:absolute;top:-14px;right:-14px;width:52px;height:52px;border-radius:50%;{badge_color};font-size:28px;font-weight:800;display:flex;align-items:center;justify-content:center;border:3.5px solid #FDF6E3">{badge_symbol}</span>
             </div>'''
         return ui.HTML(f'''
@@ -2214,7 +2228,24 @@ def server(input, output, session):
     @reactive.effect
     @reactive.event(input.save_chance_click)
     def _save_chance_pick():
-        saved_chance_pick.set(input.save_chance_click())
+        pick = input.save_chance_click()
+        saved_chance_pick.set(pick)
+        # Saving a chance card now also favorites the underlying
+        # restaurant/activity (same as tapping its own heart icon would),
+        # so a lucky Chance draw actually counts toward your Restaurants/
+        # Activities list on the Trip Deed page instead of only showing
+        # up as a separate "drawn pick" callout.
+        item_id = (pick or {}).get("id")
+        category = (pick or {}).get("category")
+        if item_id:
+            if category == "Dining":
+                current = set(favorite_restaurant_ids.get())
+                current.add(str(item_id))
+                favorite_restaurant_ids.set(current)
+            elif category == "Activity":
+                current = set(favorite_activity_ids.get())
+                current.add(str(item_id))
+                favorite_activity_ids.set(current)
 
     @render.ui
     def chance_save_summary():
@@ -2233,8 +2264,8 @@ def server(input, output, session):
               <span class="chip" style="border:1px solid #ccc">{category}</span>
             </div>'''
         return ui.HTML(f'''
-        <div style="background:transparent;padding:0 24px 4px">
-          <p style="font-size:13px;font-weight:700;color:#E4D8C4;margin:0 0 10px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">DINING &amp; ACTIVITIES &middot; reserve separately</p>
+        <div>
+          <p style="font-size:13px;font-weight:700;color:#1B2A4A;margin:0 0 10px;text-transform:uppercase;letter-spacing:0.05em">Dining &amp; Activities &middot; reserve separately</p>
           {body}
         </div>''')
 
@@ -2343,8 +2374,8 @@ def server(input, output, session):
             cards = "".join(_restaurant_card_html(r, is_fav=True) for r in picked.to_dict("records"))
             body = f'<div class="rb-restaurant-grid">{cards}</div>'
         return ui.HTML(f'''
-        <div style="background:transparent;padding:0 24px 4px">
-          <p style="font-size:13px;font-weight:700;color:#E4D8C4;margin:0 0 10px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">FAVORITE RESTAURANTS</p>
+        <div>
+          <p style="font-size:13px;font-weight:700;color:#1B2A4A;margin:0 0 10px;text-transform:uppercase;letter-spacing:0.05em">Restaurants</p>
           {body}
         </div>''')
 
@@ -2434,8 +2465,8 @@ def server(input, output, session):
             cards = "".join(_activity_card_html(r, is_fav=True) for r in picked.to_dict("records"))
             body = f'<div class="rb-restaurant-grid">{cards}</div>'
         return ui.HTML(f'''
-        <div style="background:transparent;padding:0 24px 4px">
-          <p style="font-size:13px;font-weight:700;color:#E4D8C4;margin:0 0 10px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">FAVORITE ACTIVITIES</p>
+        <div>
+          <p style="font-size:13px;font-weight:700;color:#1B2A4A;margin:0 0 10px;text-transform:uppercase;letter-spacing:0.05em">Activities</p>
           {body}
         </div>''')
 
@@ -2500,8 +2531,8 @@ def server(input, output, session):
             amount_html = f"${amount:,.0f}" if amount is not None else '<span style="color:#888">TBD</span>'
             rows_html += f'<div style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid #eee"><span>{html.escape(label)}</span><span>{amount_html}</span></div>'
         return ui.HTML(f'''
-        <div style="background:transparent;padding:0 24px 4px">
-          <p style="font-size:13px;font-weight:700;color:#E4D8C4;margin:0 0 10px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">ESTIMATED BUDGET</p>
+        <div style="background:transparent;padding:16px 24px 4px">
+          <p style="font-size:13px;font-weight:700;color:#E4D8C4;margin:0 0 10px;text-shadow:0 1px 4px rgba(0,0,0,0.4);letter-spacing:0.05em">Estimated budget</p>
           <div style="background:#fff;border:1px solid #ddd;border-radius:10px;padding:14px 16px;margin-bottom:12px;font-size:14px">
             {rows_html}
             <div style="display:flex;justify-content:space-between;padding:10px 0 0;margin-top:4px;border-top:1.5px solid #1B2A4A;font-size:17px;font-weight:800"><span>Total</span><span>${total:,.0f}</span></div>
@@ -2512,9 +2543,6 @@ def server(input, output, session):
 
     @render.ui
     def trip_summary_footer():
-        # "Continue to bank" CTA shows the real ticket price for whichever
-        # tier is currently selected (was hardcoded $399 regardless of
-        # tier).
         attendee = current_attendee.get()
         n_shows = 0
         if attendee:
@@ -2525,13 +2553,9 @@ def server(input, output, session):
         n_stay = 1 if selected_stay.get() else 0
         n_picks = len(favorite_restaurant_ids.get()) + len(favorite_activity_ids.get())
 
-        tier_key = selected_ticket_tier.get()
-        _img, tier_name, ticket_price = TICKET_TIERS.get(tier_key, (None, "Ticket", 0))
-
         return ui.HTML(f'''
-        <div style="background:#F4D9A0;border-radius:10px;margin:0 24px 20px;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div style="background:#F4D9A0;border-radius:10px;margin:0 24px 20px;padding:18px 24px;text-align:center">
           <span style="font-size:14px;color:#1B2A4A">{n_shows} shows &middot; {n_stay} stay &middot; {n_picks} saved picks</span>
-          <span onclick="rbShow(8)" class="rb-cta" style="background:#1B2A4A;color:#FDF6E3;font-size:14px;font-weight:700;padding:12px 20px;border-radius:14px">Continue to bank &middot; ${ticket_price:,.0f}</span>
         </div>
         ''')
 
