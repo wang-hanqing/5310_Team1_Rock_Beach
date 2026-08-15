@@ -124,29 +124,28 @@ def get_schedule_by_day(per_day_limit: int = 6):
 
 
 def get_all_stays():
-    """All properties with zone_name + property_type, unfiltered — used
-    only to populate the Select Stay page's Zone/Type filter dropdown
+    """All properties with zone_name + price_tier, unfiltered — used only
+    to populate the Select Stay page's Zone/Price Tier filter dropdown
     choices with real values (same role all_restaurants_df()/
     all_activities_df() play for their own pages' filters). The actual
     filtered list rendering still goes through get_top_stays()."""
     sql = """
-        SELECT p.property_name, p.zone_id, lz.zone_name, p.property_type
+        SELECT p.property_name, p.zone_id, lz.zone_name, p.price_tier
         FROM property p
         LEFT JOIN location_zone lz ON lz.zone_id = p.zone_id
     """
     return run_query(sql)
 
 
-def get_top_stays(zone_id: int = None, price_tiers: list = None, property_type: str = None, sort: str = "rating_desc", limit: int = 500):
+def get_top_stays(zone_id: int = None, price_tiers: list = None, sort: str = "rating_desc", limit: int = 500):
     """Properties for the Select Stay page. `zone_id` filters on the real
     zone_id FK now (was previously an ILIKE substring match against
     section_of_ac — that never matched anything for "Atlantic Ave" since
     no property's section_of_ac text actually contains those words, see
     04_venue_property_activity_etl.sql's zone-parsing notes). `price_tiers`
-    is an optional list of exact price_tier values (e.g. ['Budget',
-    'Midscale']). `property_type` is an optional exact match (Casino
-    Resort / Boutique / etc). `sort` is 'rating_desc' (default),
-    'rating_asc', 'price_asc', or 'price_desc'. limit is a safety cap."""
+    is an optional list of exact price_tier values (e.g. ['Luxury']).
+    `sort` is 'rating_desc' (default), 'rating_asc', 'price_asc', or
+    'price_desc'. limit is a safety cap."""
     where = []
     params = {"limit": limit}
     if zone_id is not None:
@@ -155,9 +154,6 @@ def get_top_stays(zone_id: int = None, price_tiers: list = None, property_type: 
     if price_tiers:
         where.append("price_tier = ANY(%(price_tiers)s)")
         params["price_tiers"] = price_tiers
-    if property_type:
-        where.append("property_type = %(property_type)s")
-        params["property_type"] = property_type
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
     order_sql = {
@@ -167,8 +163,9 @@ def get_top_stays(zone_id: int = None, price_tiers: list = None, property_type: 
     }.get(sort, "star_rating DESC NULLS LAST")
 
     sql = f"""
-        SELECT property_name, section_of_ac, zone_id, price_tier, property_type,
-               star_rating, price_min_usd, price_max_usd, has_pool, has_casino,
+        SELECT property_name, section_of_ac, zone_id, price_tier,
+               star_rating, price_min_usd, price_max_usd,
+               has_pool, has_casino, has_restaurant,
                google_maps_link
         FROM property
         {where_sql}
@@ -176,7 +173,6 @@ def get_top_stays(zone_id: int = None, price_tiers: list = None, property_type: 
         LIMIT %(limit)s
     """
     return run_query(sql, params=params)
-
 
 def get_all_restaurants():
     """All restaurants for the Draw Chance page's browsable deal list, each

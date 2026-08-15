@@ -503,6 +503,17 @@ def _stay_card(row, featured=False, is_selected=False) -> str:
     if isinstance(gmaps_url, str) and gmaps_url.strip():
         maps_link_row = f'<div style="margin-top:6px"><a href="{html.escape(gmaps_url, quote=True)}" target="_blank" rel="noopener" class="rb-restaurant-link gmaps" title="View on Google Maps">{GMAPS_ICON_SVG}Google Maps</a></div>'
 
+    # Amenity icons — only shown when the value is actually True (not
+    # False or NaN/"Unclear", which several has_pool rows are).
+    amenities = []
+    if row.get("has_casino") == True:
+        amenities.append('<span title="Has a casino">&#127920;</span>')
+    if row.get("has_pool") == True:
+        amenities.append('<span title="Has a pool">&#127946;</span>')
+    if row.get("has_restaurant") == True:
+        amenities.append('<span title="Has an on-site restaurant">&#127869;&#65039;</span>')
+    amenities_row = f'<span style="font-size:15px;margin-left:8px;letter-spacing:2px">{"".join(amenities)}</span>' if amenities else ""
+
     # Add / Selected action — same clickable-stamp pattern as Plan Shows'
     # Add/Landed button (session-only state; there's no attendee_property
     # table in the shared schema yet to persist this to).
@@ -522,7 +533,7 @@ def _stay_card(row, featured=False, is_selected=False) -> str:
       <div style="flex:1;min-width:0">
         <p style="font-size:16px;font-weight:700;margin:0">{row['property_name']}</p>
         {stars}
-        <p style="font-size:14px;color:#888;margin:4px 0 0">{row['section_of_ac']} &middot; {row['price_tier']}{price}</p>
+        <p style="font-size:14px;color:#888;margin:4px 0 0">{row['price_tier']}{price}{amenities_row}</p>
         {maps_link_row}
       </div>
       <div style="align-self:center;text-align:right;white-space:nowrap">
@@ -1106,7 +1117,6 @@ PAGE_5_TITLE = """
 # are a multi-select over property.price_tier's exact values, grouped by
 # house-count the same way _stay_card already displays them.
 # tier key -> (house count shown, list of exact property.price_tier values it covers)
-PRICE_TIER_CHIPS = [("1", 1, ["Budget", "Midscale"]), ("2", 2, ["Upscale"]), ("3", 3, ["Luxury"])]
 
 # ── Page 6 · Draw Chance (dining pick is LIVE + re-rollable) ───────────────
 PAGE_6_INTRO = """
@@ -1287,12 +1297,11 @@ app_ui = ui.page_fluid(
                     ui.div(
                         ui.div(
                             ui.input_select("stay_zone_select", "", choices={"": "All zones"}),
-                            ui.input_select("stay_type_select", "", choices={"": "All types"}),
+                            ui.input_select("stay_price_tier_select", "", choices={"": "All price tiers"}),
                             ui.input_select("stay_sort", "", choices={"": "Sort by", "rating_desc": "Rating: high to low", "rating_asc": "Rating: low to high", "price_asc": "Price: low to high", "price_desc": "Price: high to low"}),
                             class_="rb-filter-row",
                             style="padding:0 24px 12px",
                         ),
-                        ui.output_ui("stay_filters"),
                         ui.output_ui("stay_cards"),
                         style="flex:1;min-width:280px",
                     ),
@@ -1350,14 +1359,14 @@ def server(input, output, session):
     current_attendee = reactive.value(None)
 
     # ── Page 5: Select Stay zone/price filters ────────────────────────────
-    # Zone is now a dropdown using the real zone_id FK (was a chip-based
-    # ILIKE text hack before — see get_top_stays()'s docstring for why
-    # that never actually worked for "Atlantic Ave"). Price tier stays
-    # multi-select via the house-icon chip pattern (kept as-is per
-    # request — only Zone switches to a dropdown). Defaults to all three
-    # tiers selected, i.e. no filter applied.
-    stay_tiers = reactive.value({"1", "2", "3"})
-
+    # ── Page 5: Select Stay zone/price-tier filters ───────────────────────
+    # Both Zone and Price Tier are real dropdowns now, using actual
+    # property.zone_id / property.price_tier values (Zone was previously
+    # a chip-based ILIKE text hack — see get_top_stays()'s docstring for
+    # why that never worked for "Atlantic Ave"; Price Tier was previously
+    # a separate house-icon chip row grouping Budget+Midscale together —
+    # now it's its own dropdown with the 4 real price_tier values, no
+    # separate chip row needed).
     @reactive.calc
     def all_stays_df():
         try:
@@ -1375,38 +1384,10 @@ def server(input, output, session):
         zone_choices.update({str(int(z)): n for z, n in zip(zones["zone_id"], zones["zone_name"])})
         ui.update_select("stay_zone_select", choices=zone_choices, session=session)
 
-        types = sorted(df["property_type"].dropna().unique().tolist())
-        type_choices = {"": "All types"}
-        type_choices.update({t: t for t in types})
-        ui.update_select("stay_type_select", choices=type_choices, session=session)
-
-    @reactive.effect
-    @reactive.event(input.stay_tier_click)
-    def _toggle_stay_tier():
-        clicked = input.stay_tier_click()
-        current = set(stay_tiers.get())
-        if clicked in current:
-            current.discard(clicked)
-        else:
-            current.add(clicked)
-        stay_tiers.set(current)
-
-    @render.ui
-    def stay_filters():
-        tier_sel = stay_tiers.get()
-
-        tier_chips = ""
-        for key, houses, _values in PRICE_TIER_CHIPS:
-            active = key in tier_sel
-            style = "background:#FFD84D;color:#1B2A4A;font-weight:700" if active else "background:#FDF6E3;border:1px solid #ccc;color:#666"
-            house_icons = "".join('<span class="house"></span>' for _ in range(houses))
-            tier_chips += f'<span class="chip rb-cta" style="{style};cursor:pointer" onclick="rbClickChip(\'stay_tier_click\',\'{key}\')">{house_icons}</span>'
-
-        return ui.HTML(f'''
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:0 24px 14px">
-          <span style="font-size:14px;color:#FDF6E3;text-shadow:0 1px 4px rgba(0,0,0,0.4)">Price tier:</span>
-          {tier_chips}
-        </div>''')
+        tiers = sorted(df["price_tier"].dropna().unique().tolist())
+        tier_choices = {"": "All price tiers"}
+        tier_choices.update({t: t for t in tiers})
+        ui.update_select("stay_price_tier_select", choices=tier_choices, session=session)
 
     # ── Page 1: daily posters (live) ─────────────────────────────────────
     @render.ui
@@ -1933,31 +1914,18 @@ def server(input, output, session):
 
     @render.ui
     def stay_cards():
-        selected_tier_keys = stay_tiers.get()
-        # If every tier chip is selected (the default), that's "no filter" —
-        # pass None instead of all values so an empty selection (all
-        # deselected) can still be told apart from "show everything".
-        if selected_tier_keys == {"1", "2", "3"}:
-            price_tiers = None
-        else:
-            price_tiers = [v for key, _houses, values in PRICE_TIER_CHIPS if key in selected_tier_keys for v in values]
-
         zone_sel = (input.stay_zone_select() or "").strip()
-        type_sel = (input.stay_type_select() or "").strip()
+        tier_sel = (input.stay_price_tier_select() or "").strip()
         sort_sel = (input.stay_sort() or "rating_desc").strip()
 
-        if selected_tier_keys == set():
-            df = pd.DataFrame()  # all tiers deselected -> show nothing, no need to query
-        else:
-            try:
-                df = queries.get_top_stays(
-                    zone_id=int(zone_sel) if zone_sel else None,
-                    price_tiers=price_tiers,
-                    property_type=type_sel or None,
-                    sort=sort_sel,
-                )
-            except Exception as e:
-                return ui.HTML(_db_error_box(f"Couldn't reach the database ({e})."))
+        try:
+            df = queries.get_top_stays(
+                zone_id=int(zone_sel) if zone_sel else None,
+                price_tiers=[tier_sel] if tier_sel else None,
+                sort=sort_sel,
+            )
+        except Exception as e:
+            return ui.HTML(_db_error_box(f"Couldn't reach the database ({e})."))
         if len(df) == 0:
             return ui.HTML('<div class="dashedbox" style="height:60px;margin:0 24px 14px">No stays match those filters</div>')
         picked = selected_stay.get()
