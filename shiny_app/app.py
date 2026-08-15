@@ -498,6 +498,11 @@ def _stay_card(row, featured=False, is_selected=False) -> str:
     box_style = "border:1.5px solid #1B2A4A;background:#FDF6E3;" if featured else "border:1px solid #ddd;background:#fff;"
     photo = _stay_photo_html(row["property_name"])
 
+    maps_link_row = ""
+    gmaps_url = row.get("google_maps_link")
+    if isinstance(gmaps_url, str) and gmaps_url.strip():
+        maps_link_row = f'<div style="margin-top:6px"><a href="{html.escape(gmaps_url, quote=True)}" target="_blank" rel="noopener" class="rb-restaurant-link gmaps" title="View on Google Maps">{GMAPS_ICON_SVG}Google Maps</a></div>'
+
     # Add / Selected action — same clickable-stamp pattern as Plan Shows'
     # Add/Landed button (session-only state; there's no attendee_property
     # table in the shared schema yet to persist this to).
@@ -518,6 +523,7 @@ def _stay_card(row, featured=False, is_selected=False) -> str:
         <p style="font-size:16px;font-weight:700;margin:0">{row['property_name']}</p>
         {stars}
         <p style="font-size:14px;color:#888;margin:4px 0 0">{row['section_of_ac']} &middot; {row['price_tier']}{price}</p>
+        {maps_link_row}
       </div>
       <div style="align-self:center;text-align:right;white-space:nowrap">
         <div style="margin-bottom:8px">{houses}</div>
@@ -1099,7 +1105,6 @@ PAGE_5_TITLE = """
 # (label shown to the user -> substring sent to the query). Price tier chips
 # are a multi-select over property.price_tier's exact values, grouped by
 # house-count the same way _stay_card already displays them.
-ZONE_CHIPS = [("Boardwalk / Casino", "Boardwalk"), ("Atlantic Ave", "Atlantic Ave"), ("Marina", "Marina")]
 # tier key -> (house count shown, list of exact property.price_tier values it covers)
 PRICE_TIER_CHIPS = [("1", 1, ["Budget", "Midscale"]), ("2", 2, ["Upscale"]), ("3", 3, ["Luxury"])]
 
@@ -1232,9 +1237,9 @@ app_ui = ui.page_fluid(
                 ui.HTML(PAGE_6_INTRO),
                 ui.output_ui("chance_pick"),
                 ui.div(
-                    ui.HTML('<p style="font-size:16px;font-weight:400;color:#FDF6E3;margin:0 0 12px;text-shadow:0 1px 4px rgba(0,0,0,0.4);text-transform:uppercase;letter-spacing:0.05em">Restaurants</p>'),
                     ui.div(
                         ui.div(
+                            ui.HTML('<p style="font-size:16px;font-weight:400;color:#FDF6E3;margin:0 0 12px;text-shadow:0 1px 4px rgba(0,0,0,0.4);text-transform:uppercase;letter-spacing:0.05em">Restaurants</p>'),
                             ui.div(
                                 ui.input_select("rest_category", "", choices={"": "All types"}),
                                 ui.input_select("rest_country", "", choices={"": "All countries"}),
@@ -1245,36 +1250,33 @@ app_ui = ui.page_fluid(
                                 style="padding:0 0 12px",
                             ),
                             ui.output_ui("restaurant_list"),
+                            ui.HTML('<p style="font-size:16px;font-weight:400;color:#FDF6E3;margin:24px 0 12px;text-shadow:0 1px 4px rgba(0,0,0,0.4);text-transform:uppercase;letter-spacing:0.05em">More activities</p>'),
+                            ui.div(
+                                ui.input_select("activity_category_filter", "", choices={"": "All categories"}),
+                                ui.input_select("activity_zone", "", choices={"": "All zones"}),
+                                ui.input_select("activity_price", "", choices={"": "All prices", "Free": "Free", "$": "$", "$$": "$$", "$$$": "$$$", "$$$$": "$$$$"}),
+                                class_="rb-filter-row",
+                                style="padding:0 0 12px",
+                            ),
+                            ui.output_ui("activity_list"),
                             style="flex:1;min-width:280px",
                         ),
                         ui.div(
-                            ui.div(
-                                output_widget("chance_map", height="500px"),
-                                style="border:2px solid #1B2A4A;border-radius:14px;overflow:hidden;box-shadow:0 3px 0 rgba(27,42,74,0.15)",
-                            ),
                             ui.HTML('''
-                            <div style="display:flex;gap:12px;flex-wrap:wrap;padding:8px 2px 0;font-size:11px;color:#FDF6E3;text-shadow:0 1px 4px rgba(0,0,0,0.4)">
+                            <div style="display:flex;gap:12px;flex-wrap:wrap;padding:0 2px 8px;font-size:11px;color:#FDF6E3;text-shadow:0 1px 4px rgba(0,0,0,0.4)">
                               <span>&#128308; Venue</span>
                               <span>&#128992; Dining</span>
                               <span>&#128994; Activity</span>
                             </div>
                             '''),
+                            ui.div(
+                                output_widget("chance_map", height="500px"),
+                                style="border:2px solid #1B2A4A;border-radius:14px;overflow:hidden;box-shadow:0 3px 0 rgba(27,42,74,0.15)",
+                            ),
                             style="width:340px;flex-shrink:0;position:sticky;top:16px",
                         ),
                         style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap",
                     ),
-                    style="background:transparent;padding:8px 24px 24px",
-                ),
-                ui.div(
-                    ui.HTML('<p style="font-size:16px;font-weight:400;color:#FDF6E3;margin:0 0 12px;text-shadow:0 1px 4px rgba(0,0,0,0.4);text-transform:uppercase;letter-spacing:0.05em">More activities</p>'),
-                    ui.div(
-                        ui.input_select("activity_category_filter", "", choices={"": "All categories"}),
-                        ui.input_select("activity_zone", "", choices={"": "All zones"}),
-                        ui.input_select("activity_price", "", choices={"": "All prices", "Free": "Free", "$": "$", "$$": "$$", "$$$": "$$$", "$$$$": "$$$$"}),
-                        class_="rb-filter-row",
-                        style="padding:0 0 12px",
-                    ),
-                    ui.output_ui("activity_list"),
                     style="background:transparent;padding:8px 24px 24px",
                 ),
                 class_="rb-shadow-page",
@@ -1287,6 +1289,13 @@ app_ui = ui.page_fluid(
                 ui.HTML(PAGE_5_TITLE),
                 ui.div(
                     ui.div(
+                        ui.div(
+                            ui.input_select("stay_zone_select", "", choices={"": "All zones"}),
+                            ui.input_select("stay_type_select", "", choices={"": "All types"}),
+                            ui.input_select("stay_sort", "", choices={"rating_desc": "Rating: high to low", "rating_asc": "Rating: low to high", "price_asc": "Price: low to high", "price_desc": "Price: high to low"}),
+                            class_="rb-filter-row",
+                            style="padding:0 24px 12px",
+                        ),
                         ui.output_ui("stay_filters"),
                         ui.output_ui("stay_cards"),
                         style="flex:1;min-width:280px",
@@ -1343,18 +1352,36 @@ def server(input, output, session):
     # this id — there's no separate login system.
     current_attendee = reactive.value(None)
 
-    # ── Page 5: Select Stay zone/price filter chips ──────────────────────
-    # Zone is single-select (clicking the active chip again clears it back
-    # to "all zones"); price tier is multi-select (defaults to all three
-    # tiers selected, i.e. no filter, matching "show everything" default).
-    stay_zone = reactive.value(None)
+    # ── Page 5: Select Stay zone/price filters ────────────────────────────
+    # Zone is now a dropdown using the real zone_id FK (was a chip-based
+    # ILIKE text hack before — see get_top_stays()'s docstring for why
+    # that never actually worked for "Atlantic Ave"). Price tier stays
+    # multi-select via the house-icon chip pattern (kept as-is per
+    # request — only Zone switches to a dropdown). Defaults to all three
+    # tiers selected, i.e. no filter applied.
     stay_tiers = reactive.value({"1", "2", "3"})
 
+    @reactive.calc
+    def all_stays_df():
+        try:
+            return queries.get_all_stays()
+        except Exception:
+            return pd.DataFrame()
+
     @reactive.effect
-    @reactive.event(input.stay_zone_click)
-    def _toggle_stay_zone():
-        clicked = input.stay_zone_click()
-        stay_zone.set(None if stay_zone.get() == clicked else clicked)
+    def _populate_stay_filters():
+        df = all_stays_df()
+        if len(df) == 0:
+            return
+        zones = df[["zone_id", "zone_name"]].dropna().drop_duplicates().sort_values("zone_id")
+        zone_choices = {"": "All zones"}
+        zone_choices.update({str(int(z)): n for z, n in zip(zones["zone_id"], zones["zone_name"])})
+        ui.update_select("stay_zone_select", choices=zone_choices, session=session)
+
+        types = sorted(df["property_type"].dropna().unique().tolist())
+        type_choices = {"": "All types"}
+        type_choices.update({t: t for t in types})
+        ui.update_select("stay_type_select", choices=type_choices, session=session)
 
     @reactive.effect
     @reactive.event(input.stay_tier_click)
@@ -1369,14 +1396,7 @@ def server(input, output, session):
 
     @render.ui
     def stay_filters():
-        zone_sel = stay_zone.get()
         tier_sel = stay_tiers.get()
-
-        zone_chips = ""
-        for label, keyword in ZONE_CHIPS:
-            active = zone_sel == keyword
-            style = "background:#F0997B;color:#4A1B0C;font-weight:700" if active else "background:#FDF6E3;border:1px solid #ccc;color:#666"
-            zone_chips += f'<span class="chip rb-cta" style="{style};cursor:pointer" onclick="rbClickChip(\'stay_zone_click\',\'{keyword}\')">{label}</span>'
 
         tier_chips = ""
         for key, houses, _values in PRICE_TIER_CHIPS:
@@ -1386,12 +1406,9 @@ def server(input, output, session):
             tier_chips += f'<span class="chip rb-cta" style="{style};cursor:pointer" onclick="rbClickChip(\'stay_tier_click\',\'{key}\')">{house_icons}</span>'
 
         return ui.HTML(f'''
-        <div style="background:transparent;padding:0 24px 14px">
-          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">{zone_chips}</div>
-          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-            <span style="font-size:14px;color:#FDF6E3;text-shadow:0 1px 4px rgba(0,0,0,0.4)">Price tier:</span>
-            {tier_chips}
-          </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:0 24px 14px">
+          <span style="font-size:14px;color:#FDF6E3;text-shadow:0 1px 4px rgba(0,0,0,0.4)">Price tier:</span>
+          {tier_chips}
         </div>''')
 
     # ── Page 1: daily posters (live) ─────────────────────────────────────
@@ -1737,6 +1754,17 @@ def server(input, output, session):
             df = map_locations()
         except Exception:
             return
+        # Stay pins only show the one property actually selected (matching
+        # the same "empty until chosen" pattern used for Venue/Dining/
+        # Activity elsewhere in the app) instead of all ~27 properties at
+        # once. Venue/Dining/Activity here keep their existing behavior —
+        # everything in a checked category shows, not just favorites —
+        # since that wasn't asked to change.
+        picked = selected_stay.get()
+        if picked:
+            df = df[(df["category"] != "Stay") | (df["name"] == picked[0])]
+        else:
+            df = df[df["category"] != "Stay"]
         _redraw_map_markers(stay_trip_map.widget, df, input.stay_map_categories(), on_marker_click=_on_stay_map_click)
 
     # ── Chance page map: added venues (from Plan Shows) + favorited
@@ -1901,17 +1929,27 @@ def server(input, output, session):
         else:
             price_tiers = [v for key, _houses, values in PRICE_TIER_CHIPS if key in selected_tier_keys for v in values]
 
+        zone_sel = (input.stay_zone_select() or "").strip()
+        type_sel = (input.stay_type_select() or "").strip()
+        sort_sel = (input.stay_sort() or "rating_desc").strip()
+
         if selected_tier_keys == set():
             df = pd.DataFrame()  # all tiers deselected -> show nothing, no need to query
         else:
             try:
-                df = queries.get_top_stays(zone=stay_zone.get(), price_tiers=price_tiers)
+                df = queries.get_top_stays(
+                    zone_id=int(zone_sel) if zone_sel else None,
+                    price_tiers=price_tiers,
+                    property_type=type_sel or None,
+                    sort=sort_sel,
+                )
             except Exception as e:
                 return ui.HTML(_db_error_box(f"Couldn't reach the database ({e})."))
         if len(df) == 0:
             return ui.HTML('<div class="dashedbox" style="height:60px;margin:0 24px 14px">No stays match those filters</div>')
         picked = selected_stay.get()
         picked_name = picked[0] if picked else None
+
         cards = "".join(
             _stay_card(r, featured=(i == 0), is_selected=(r["property_name"] == picked_name))
             for i, r in enumerate(df.to_dict("records"))

@@ -123,29 +123,56 @@ def get_schedule_by_day(per_day_limit: int = 6):
     return out
 
 
-def get_top_stays(zone: str = None, price_tiers: list = None, limit: int = 500):
-    """Properties for the Select Stay page, highest-rated first. `zone` is
-    an optional ILIKE substring against section_of_ac (e.g. 'Boardwalk',
-    'Marina'); `price_tiers` is an optional list of exact price_tier values
-    to include (e.g. ['Budget', 'Midscale']). limit is a safety cap, not a
-    real content limit (previously hardcoded to 3, which silently hid the
-    other 24 properties)."""
+def get_all_stays():
+    """All properties with zone_name + property_type, unfiltered — used
+    only to populate the Select Stay page's Zone/Type filter dropdown
+    choices with real values (same role all_restaurants_df()/
+    all_activities_df() play for their own pages' filters). The actual
+    filtered list rendering still goes through get_top_stays()."""
+    sql = """
+        SELECT property_name, zone_id, lz.zone_name, property_type
+        FROM property p
+        LEFT JOIN location_zone lz ON lz.zone_id = p.zone_id
+    """
+    return run_query(sql)
+
+
+def get_top_stays(zone_id: int = None, price_tiers: list = None, property_type: str = None, sort: str = "rating_desc", limit: int = 500):
+    """Properties for the Select Stay page. `zone_id` filters on the real
+    zone_id FK now (was previously an ILIKE substring match against
+    section_of_ac — that never matched anything for "Atlantic Ave" since
+    no property's section_of_ac text actually contains those words, see
+    04_venue_property_activity_etl.sql's zone-parsing notes). `price_tiers`
+    is an optional list of exact price_tier values (e.g. ['Budget',
+    'Midscale']). `property_type` is an optional exact match (Casino
+    Resort / Boutique / etc). `sort` is 'rating_desc' (default),
+    'rating_asc', 'price_asc', or 'price_desc'. limit is a safety cap."""
     where = []
     params = {"limit": limit}
-    if zone:
-        where.append("section_of_ac ILIKE %(zone)s")
-        params["zone"] = f"%{zone}%"
+    if zone_id is not None:
+        where.append("zone_id = %(zone_id)s")
+        params["zone_id"] = zone_id
     if price_tiers:
         where.append("price_tier = ANY(%(price_tiers)s)")
         params["price_tiers"] = price_tiers
+    if property_type:
+        where.append("property_type = %(property_type)s")
+        params["property_type"] = property_type
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
+    order_sql = {
+        "rating_asc": "star_rating ASC NULLS LAST",
+        "price_asc": "price_min_usd ASC NULLS LAST",
+        "price_desc": "price_max_usd DESC NULLS LAST",
+    }.get(sort, "star_rating DESC NULLS LAST")
+
     sql = f"""
-        SELECT property_name, section_of_ac, price_tier,
-               star_rating, price_min_usd, price_max_usd, has_pool, has_casino
+        SELECT property_name, section_of_ac, zone_id, price_tier, property_type,
+               star_rating, price_min_usd, price_max_usd, has_pool, has_casino,
+               google_maps_link
         FROM property
         {where_sql}
-        ORDER BY star_rating DESC NULLS LAST
+        ORDER BY {order_sql}
         LIMIT %(limit)s
     """
     return run_query(sql, params=params)
