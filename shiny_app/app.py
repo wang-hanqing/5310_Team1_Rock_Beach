@@ -889,15 +889,14 @@ input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; 
 
 /* My 3-Day Schedule: per-day board-path of added shows + free-time gaps */
 .rb-board-day { flex:1; min-width:230px; }
-.rb-board-title { font-size:20px; font-weight:700; color:#FDF6E3; margin:0 0 14px; text-shadow:0 1px 4px rgba(0,0,0,0.4); }
 .rb-board-path { border-left:2px dotted #ccc; margin-left:10px; padding-left:18px; }
 .rb-board-tile { position:relative; margin-bottom:14px; }
 .rb-board-tile::before { content:''; position:absolute; left:-25px; top:8px; width:11px; height:11px; border-radius:50%; background:#1B2A4A; }
 .rb-board-tile.free::before { background:#fff; border:2px dashed #999; }
 .rb-tile-card { border-radius:8px; padding:12px 14px; }
-.rb-tile-card.show { background:#FDF6E3; border:1.5px solid #1B2A4A; }
-.rb-tile-card.next { border-color:#FFD84D; box-shadow:0 0 0 2px #FFD84D; }
-.rb-tile-card.free { border:1.5px dashed #999; background:#fafafa; cursor:pointer; }
+.rb-tile-card.show { background:#FDF6E3; border:1.5px solid #1B2A4A; box-shadow:0 6px 14px rgba(0,0,0,0.35), 0 2px 0 rgba(27,42,74,0.5); transform:translateY(-1px); }
+.rb-tile-card.next { border-color:#FFD84D; box-shadow:0 6px 14px rgba(0,0,0,0.35), 0 0 0 2px #FFD84D; }
+.rb-tile-card.free { border:1.5px dashed #999; background:#fafafa; cursor:pointer; box-shadow:none; }
 .rb-tile-card.free:hover { background:#F4D9A0; }
 .rb-tile-bus { display:inline-flex; align-items:center; gap:5px; background:#FFD84D; border:1px solid #1B2A4A; border-radius:8px; padding:3px 9px; font-size:12px; font-weight:700; color:#1B2A4A; margin-bottom:7px; }
 
@@ -1174,7 +1173,10 @@ app_ui = ui.page_fluid(
                         style="flex:1;min-width:280px",
                     ),
                     ui.div(
-                        output_widget("plan_shows_map", height="500px"),
+                        ui.div(
+                            output_widget("plan_shows_map", height="500px"),
+                            style="border:2px solid #1B2A4A;border-radius:14px;overflow:hidden;box-shadow:0 3px 0 rgba(27,42,74,0.15)",
+                        ),
                         style="width:340px;flex-shrink:0;position:sticky;top:16px",
                     ),
                     style="display:flex;gap:20px;align-items:flex-start;padding:0 20px 22px;flex-wrap:wrap",
@@ -1242,7 +1244,10 @@ app_ui = ui.page_fluid(
                             selected=["Venue", "Stay"],
                             inline=True,
                         ),
-                        output_widget("stay_trip_map", height="500px"),
+                        ui.div(
+                            output_widget("stay_trip_map", height="500px"),
+                            style="border:2px solid #1B2A4A;border-radius:14px;overflow:hidden;box-shadow:0 3px 0 rgba(27,42,74,0.15)",
+                        ),
                         style="width:340px;flex-shrink:0;position:sticky;top:16px",
                     ),
                     style="display:flex;gap:20px;align-items:flex-start;padding:0 24px 26px;flex-wrap:wrap",
@@ -1765,22 +1770,29 @@ def server(input, output, session):
             for _, kind, row, is_next in events:
                 if kind == "show":
                     bus = f'<span class="rb-tile-bus">{BUS_SVG} Next stop</span>' if is_next else ""
+                    meta_text = f"{_fmt_time(row['start_time'])}\u2013{_fmt_time(row['end_time'])} \u00b7 {row['stage_name']}"
                     tiles += f'''<div class="rb-board-tile">
                       <div class="rb-tile-card show{" next" if is_next else ""}">
-                        {bus}<p style="font-size:17px;font-weight:700;margin:0">{row['artist_name']}</p>
-                        <p style="font-size:14px;color:#666;margin:4px 0 0">{_fmt_time(row['start_time'])}&ndash;{_fmt_time(row['end_time'])} &middot; {row['stage_name']}</p>
+                        {bus}<p style="font-size:17px;font-weight:700;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{html.escape(row['artist_name'])}">{row['artist_name']}</p>
+                        <p style="font-size:12px;font-weight:400;color:#666;margin:4px 0 0;text-transform:uppercase;letter-spacing:0.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{html.escape(meta_text)}">{meta_text}</p>
                       </div>
                     </div>'''
                 else:
                     mins = int(row["gap_minutes"])
                     tiles += f'''<div class="rb-board-tile free" onclick="rbShow(5)">
                       <div class="rb-tile-card free">
-                        <p style="font-size:15px;color:#888;margin:0">Free time &middot; {mins} min</p>
-                        <p style="font-size:13px;color:#aaa;margin:4px 0 0">Tap to draw a chance card</p>
+                        <p style="font-size:14px;font-weight:400;color:#888;margin:0;text-transform:uppercase;letter-spacing:0.04em">Free time &middot; {mins} min</p>
+                        <p style="font-size:12px;font-weight:400;color:#aaa;margin:4px 0 0;text-transform:uppercase;letter-spacing:0.04em">Tap to draw a chance card</p>
                       </div>
                     </div>'''
+            day_label = DAY_POSTER_LABELS.get(day_number, f"Day {day_number}")
+            day_date_part, _, day_dow_part = day_label.rpartition(" ")
+            day_color = DAY_POSTER_COLORS.get(day_number, "#1B2A4A")
             cols.append(f'''<div class="rb-board-day">
-              <p class="rb-board-title">Day {day_number}</p>
+              <div style="background:{day_color};border-radius:10px;padding:8px 4px;text-align:center;box-shadow:0 3px 8px rgba(0,0,0,0.3);margin-bottom:14px;max-width:140px">
+                <p style="font-size:15px;line-height:1.2;font-weight:800;color:#fff;margin:0">{day_date_part}</p>
+                <p style="font-size:12px;line-height:1.2;font-weight:700;color:rgba(255,255,255,0.9);margin:0;letter-spacing:0.04em">{day_dow_part}</p>
+              </div>
               <div class="rb-board-path">{tiles}</div>
             </div>''')
 
