@@ -81,7 +81,7 @@ def _redraw_map_markers(leaflet_map, df, selected_categories, highlight_names=No
         leaflet_map.add_layer(marker)
 
 # ── Steps + palette ──────────────────────────────────────────────────────────
-STEP_LABELS = ["Lineup", "Plan shows", "Schedule", "Chance", "Stay", "Summary", "Bank"]
+STEP_LABELS = ["Lineup", "Plan shows", "Schedule", "Chance", "Properties", "Trip Deed", "The Bank"]
 STEP_COLORS = ["#FFD84D", "#2EC4B6", "#7F77DD", "#E85D7A", "#FFD84D", "#2EC4B6", "#7F77DD"]
 STEP_STATUS = [
     "Live lineup from the database",
@@ -140,7 +140,7 @@ def stepper_html(current: int) -> str:
               <div style="height:8px;background:{color};opacity:.5;border-radius:8px 8px 0 0"></div>
               <div style="height:62px;border-radius:0 0 8px 8px;background:#2C3E63;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px">
                 <span style="color:#5DCAA5;font-size:16px;font-weight:700">&#10003;</span>
-                <span style="font-size:15px;color:#E4D8C4;font-weight:500">{label}</span>
+                <span style="font-size:14px;color:#E4D8C4;font-weight:400;text-transform:uppercase;letter-spacing:0.05em">{label}</span>
               </div>
             </div>''')
         elif i == current:
@@ -149,7 +149,7 @@ def stepper_html(current: int) -> str:
               <div style="height:8px;background:{color};border-radius:8px 8px 0 0;border:2px solid #1B2A4A;border-bottom:none"></div>
               <div style="height:62px;border-radius:0 0 8px 8px;background:#FFD84D;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:2px solid #1B2A4A;border-top:none">
                 {BUS_SVG}
-                <span style="font-size:15px;color:#1B2A4A;font-weight:700">{label}</span>
+                <span style="font-size:14px;color:#1B2A4A;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">{label}</span>
               </div>
             </div>''')
         else:
@@ -157,7 +157,7 @@ def stepper_html(current: int) -> str:
             <div onclick="rbShow({page_num})" style="cursor:pointer;flex:1;min-width:105px;text-align:center">
               <div style="height:8px;background:{color};opacity:.25;border-radius:8px 8px 0 0"></div>
               <div style="height:62px;border-radius:0 0 8px 8px;background:#243452;border:1.5px dashed #3A4A70;display:flex;align-items:center;justify-content:center;padding:0 4px">
-                <span style="font-size:15px;color:#E4D8C4;font-weight:500">{label}</span>
+                <span style="font-size:14px;color:#E4D8C4;font-weight:400;text-transform:uppercase;letter-spacing:0.05em">{label}</span>
               </div>
             </div>''')
     return f'''
@@ -873,8 +873,8 @@ input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; 
 
 /* Plan Shows: filter bar, performance rows, jail-card conflict warning, map */
 .rb-filter-row { display:flex; gap:10px; padding:4px 24px 18px; flex-wrap:wrap; align-items:center; }
-.rb-filter-row .form-select, .rb-filter-row .form-control { border:1px solid #4A5A80 !important; background:#2C3E63 !important; color:#FDF6E3 !important; border-radius:8px !important; font-size:14px !important; padding:9px 12px !important; box-shadow:none !important; }
-.rb-filter-row .form-select option { background:#2C3E63; color:#FDF6E3; }
+.rb-filter-row .form-select, .rb-filter-row .form-control { border:1px solid #4A5A80 !important; background:#2C3E63 !important; color:#FDF6E3 !important; border-radius:8px !important; font-size:14px !important; font-weight:400 !important; text-transform:uppercase !important; letter-spacing:0.03em !important; padding:9px 12px !important; box-shadow:none !important; }
+.rb-filter-row .form-select option { background:#2C3E63; color:#FDF6E3; text-transform:none; }
 /* Chance page's restaurant/activity filter dropdowns — bumped bigger than
    the base .rb-filter-row size above (which Plan Shows also uses). */
 .rb-filter-row-lg .form-select, .rb-filter-row-lg .form-control { font-size:18px !important; padding:12px 16px !important; }
@@ -1043,10 +1043,6 @@ PAGE_3_TITLE = """
 </div>
 """
 
-PAGE_3_VENUE_MAP_LABEL = """
-<p style="font-size:15px;font-weight:700;color:#FDF6E3;margin:0 0 4px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">Venue map</p>
-<p style="font-size:12.5px;color:#E4D8C4;margin:0 0 10px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">&#9733; gold star = a venue on your schedule &mdash; hitting Add flies you straight there</p>
-"""
 
 # ── Page 4 · My 3-Day Schedule (day columns are LIVE, rest is static) ───────
 PAGE_4_INTRO = """
@@ -1167,6 +1163,7 @@ app_ui = ui.page_fluid(
                     ui.div(
                         ui.div(
                             ui.input_select("pf_day", "", choices={"": "All days", "1": "Fri Aug 21", "2": "Sat Aug 22", "3": "Sun Aug 23"}),
+                            ui.input_select("pf_time", "", choices={"": "All times"}),
                             ui.input_select("pf_venue", "", choices={"": "All venues"}),
                             ui.input_text("pf_search", "", placeholder="Search artist..."),
                             class_="rb-filter-row",
@@ -1177,7 +1174,6 @@ app_ui = ui.page_fluid(
                         style="flex:1;min-width:280px",
                     ),
                     ui.div(
-                        ui.HTML(PAGE_3_VENUE_MAP_LABEL),
                         output_widget("plan_shows_map", height="500px"),
                         style="width:340px;flex-shrink:0;position:sticky;top:16px",
                     ),
@@ -1414,12 +1410,26 @@ def server(input, output, session):
         choices.update({v: v for v in names})
         ui.update_select("pf_venue", choices=choices, session=session)
 
+    @reactive.effect
+    def _populate_time_filter():
+        try:
+            times_df = queries.get_performance_time_slots()
+        except Exception:
+            return
+        if len(times_df) == 0:
+            return
+        choices = {"": "All times"}
+        for t in times_df["start_time"]:
+            choices[str(t)] = _fmt_time(t)
+        ui.update_select("pf_time", choices=choices, session=session)
+
     @render.ui
     def performance_list():
         _ = schedule_tick.get()  # subscribe to post-add refreshes
         try:
             day_raw = input.pf_day()
             venue_raw = (input.pf_venue() or "").strip()
+            time_raw = (input.pf_time() or "").strip()
             search = (input.pf_search() or "").strip()
             # No cap — every matching show is shown, grouped by date below,
             # instead of truncating at a small limit like the old list view.
@@ -1428,6 +1438,7 @@ def server(input, output, session):
                 tier=None,
                 search=search or None,
                 venue=venue_raw or None,
+                time_slot=time_raw or None,
                 limit=500,
             )
         except Exception as e:
@@ -1451,6 +1462,7 @@ def server(input, output, session):
             day_group = df[df["day_number"] == day_number]
             day_number_int = int(day_number)
             label = DAY_POSTER_LABELS.get(day_number_int, f"DAY {day_number_int}")
+            date_part, _, dow_part = label.rpartition(" ")
             color = DAY_POSTER_COLORS.get(day_number_int, "#1B2A4A")
 
             def _cards_grid(rows_df, capped=False):
@@ -1474,16 +1486,19 @@ def server(input, output, session):
 
             others = day_group[day_group["tier"] != "Headliner"].sort_values("start_time")
             for start_time, slot_group in others.groupby("start_time", sort=True):
-                time_label = _fmt_time(start_time)
+                time_label = f"{_fmt_time(start_time)} \u2013 {_fmt_time(slot_group['end_time'].max())}"
                 blocks.append(
-                    f'<p style="font-size:11px;font-weight:700;color:#E4D8C4;margin:0 0 8px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">{time_label}</p>'
+                    f'<p style="font-size:15px;font-weight:700;color:#E4D8C4;margin:0 0 8px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">{time_label}</p>'
                     + _cards_grid(slot_group)
                 )
 
             rows.append(f'''
             <div style="display:flex;gap:16px;align-items:flex-start;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.15)">
               <div style="flex:0 0 110px;padding-top:4px">
-                <p style="font-size:20px;line-height:1.25;font-weight:800;color:{color};margin:0;text-shadow:0 1px 4px rgba(0,0,0,0.4)">{label.replace(" &middot; ", "<br>")}</p>
+                <div style="background:{color};border-radius:10px;padding:8px 4px;text-align:center;box-shadow:0 3px 8px rgba(0,0,0,0.3)">
+                  <p style="font-size:15px;line-height:1.2;font-weight:800;color:#fff;margin:0">{date_part}</p>
+                  <p style="font-size:12px;line-height:1.2;font-weight:700;color:rgba(255,255,255,0.9);margin:0;letter-spacing:0.04em">{dow_part}</p>
+                </div>
               </div>
               <div style="flex:1">{"".join(blocks)}</div>
             </div>''')
@@ -1601,18 +1616,18 @@ def server(input, output, session):
                 added_venues = set(sched["stage_name"].dropna().unique().tolist())
             except Exception:
                 added_venues = set()
-        # Venue-only, no category picker — fewer markers to build/sync for
-        # this page, which is where the earlier loading delay was coming
-        # from (the Stay page's own map still shows all 4 categories).
-        # Venues matching a show the attendee already added get a gold star
-        # marker instead of the plain red pin, so the map visibly connects
-        # to what they've actually planned rather than showing every venue
-        # the same way regardless of their choices.
+        # Only venues the attendee has actually added get a pin — the map
+        # starts empty and pins appear as shows get added, instead of
+        # always showing all 5 venues with the added ones merely
+        # highlighted. Plain red music-note pins (MAP_CATEGORY_STYLE's
+        # default Venue style) work fine here now that there's nothing
+        # else on the map to distinguish them from.
+        df_added = df[df["name"].isin(added_venues)] if len(added_venues) else df.iloc[0:0]
         # Clicking a pin sets the existing pf_venue dropdown to that venue
         # — reuses the filter that's already wired to performance_list,
         # rather than building a second, parallel filtering path.
         _redraw_map_markers(
-            plan_shows_map.widget, df, ["Venue"], highlight_names=added_venues,
+            plan_shows_map.widget, df_added, ["Venue"],
             on_marker_click=lambda row: ui.update_select("pf_venue", selected=row["name"], session=session),
         )
 

@@ -281,11 +281,11 @@ def add_attendee(name: str, email: str):
     return insert_and_return_id(sql, {"name": name, "email": email})
 
 
-def get_performances(day: int = None, tier: str = None, search: str = None, venue: str = None, limit: int = 20):
+def get_performances(day: int = None, tier: str = None, search: str = None, venue: str = None, time_slot: str = None, limit: int = 20):
     """Performances for the Plan Shows filter bar (day / tier / artist
-    search / venue, all optional). Returns performance_id so callers can
-    add/track a specific show, plus a total_count (pre-LIMIT) for a
-    '+N more' note."""
+    search / venue / time_slot, all optional). Returns performance_id so
+    callers can add/track a specific show, plus a total_count (pre-LIMIT)
+    for a '+N more' note."""
     where = []
     params = {}
     if day:
@@ -300,6 +300,9 @@ def get_performances(day: int = None, tier: str = None, search: str = None, venu
     if venue:
         where.append("v.stage_name = %(venue)s")
         params["venue"] = venue
+    if time_slot:
+        where.append("p.start_time = %(time_slot)s")
+        params["time_slot"] = time_slot
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
     sql = f"""
@@ -315,6 +318,14 @@ def get_performances(day: int = None, tier: str = None, search: str = None, venu
     df = run_query(sql, params=params if params else None)
     total = len(df)
     return df.head(limit), total
+
+
+def get_performance_time_slots():
+    """Distinct performance start times across the whole festival, for
+    the Plan Shows time-slot filter dropdown — populated from real data
+    instead of a hardcoded guess at what slots exist."""
+    sql = "SELECT DISTINCT start_time FROM performance ORDER BY start_time"
+    return run_query(sql)
 
 
 def get_venues():
