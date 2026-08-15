@@ -287,18 +287,16 @@ def _artist_photo_src(row):
 
 
 def _lineup_grid_card(row, large=False) -> str:
-    """One card for the photo-grid Lineup page: cream card with a navy
-    border (matches the Monopoly deed-card look used elsewhere in this
-    app), a square photo inset with a small margin (or a colorful
-    gradient fallback if no photo), and the artist name + genre as plain
-    text below the photo on the cream background — no dark gradient or
-    overlaid text needed, since the caption isn't sitting on top of the
-    image anymore.
-    `large=True` (used for the Headliner tier) scales the text up so
-    headliners visually pop more than support/rising — sizing is the
-    only difference, tier position in the page (its own row, above
-    support/rising) still does the actual signaling of who's a
-    headliner, so there's no separate badge on top of that."""
+    """One card for the photo-grid Lineup page.
+    `large=True` (Headliner tier): full-bleed photo with a dark gradient
+    overlay and the name/genre overlaid in white at the bottom, no card
+    border — the original, more dramatic treatment, kept specifically
+    for headliners so their images stay big and eye-catching (an inset
+    photo + separate caption area, like support/rising below get, would
+    eat into how large the actual image reads).
+    `large=False` (Support/Rising): the A+B card look — cream card with
+    a navy border, square photo inset with a small margin, name/genre as
+    plain text below the photo on the cream background."""
     name = row["artist_name"]
     img_src = _artist_photo_src(row)
     if img_src:
@@ -310,10 +308,23 @@ def _lineup_grid_card(row, large=False) -> str:
     # Venue name intentionally left out of the caption — just artist name + genre.
     meta = row.get("genre") if isinstance(row.get("genre"), str) and row.get("genre").strip() else ""
 
-    name_size = "16px" if large else "13px"
-    meta_size = "12px" if large else "10px"
-
     spotify_url = row.get("spotify_url")
+
+    if large:
+        social_row = ""
+        if isinstance(spotify_url, str) and spotify_url.strip():
+            social_row = f'<a href="{spotify_url}" target="_blank" rel="noopener" title="Listen on Spotify" style="position:absolute;top:10px;right:10px;z-index:3">{SPOTIFY_SVG}</a>'
+        return f'''
+        <div class="rb-headliner-card">
+          {bg_layer}
+          <div class="rb-headliner-overlay"></div>
+          {social_row}
+          <div class="rb-headliner-caption">
+            <p class="name" title="{html.escape(name)}">{name}</p>
+            <p class="meta" title="{html.escape(meta)}">{meta}</p>
+          </div>
+        </div>'''
+
     social_row = ""
     if isinstance(spotify_url, str) and spotify_url.strip():
         social_row = f'''
@@ -327,8 +338,8 @@ def _lineup_grid_card(row, large=False) -> str:
         <div class="rb-artist-photo-inner">{bg_layer}</div>
       </div>
       <div class="rb-artist-caption">
-        <p class="name" style="font-size:{name_size}" title="{html.escape(name)}">{name}</p>
-        <p class="meta" style="font-size:{meta_size}" title="{html.escape(meta)}">{meta}</p>
+        <p class="name" style="font-size:13px" title="{html.escape(name)}">{name}</p>
+        <p class="meta" style="font-size:10px" title="{html.escape(meta)}">{meta}</p>
         {social_row}
       </div>
     </div>'''
@@ -692,12 +703,17 @@ body { font-family:var(--font-body); background:#fff; margin:0; padding:0; overf
 input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; font-family:inherit; }
 .dashedbox { background:rgba(255,255,255,0.85); border:1.5px dashed #1B2A4A; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#1B2A4A; opacity:.75; font-size:13px; }
 .token { background:#1B2A4A; color:#FFD84D; font-size:12px; font-weight:700; padding:6px 12px; border-radius:10px; display:inline-flex; align-items:center; gap:4px; transform:rotate(-4deg); box-shadow:1px 2px 0 rgba(0,0,0,.15); white-space:nowrap; }
-.rb-artist-card-wrap { background:#FDF6E3; border:2px solid #1B2A4A; border-radius:14px; overflow:hidden; box-shadow:0 3px 0 rgba(27,42,74,0.15); }
+.rb-artist-card-wrap { background:rgba(253,246,227,0.85); border:2px solid rgba(27,42,74,0.75); border-radius:14px; overflow:hidden; box-shadow:0 3px 0 rgba(27,42,74,0.12); backdrop-filter:blur(2px); }
 .rb-artist-photo-frame { padding:8px 8px 0; position:relative; }
 .rb-artist-photo-inner { width:100%; aspect-ratio:1/1; border-radius:8px; overflow:hidden; background:#1B2A4A; }
 .rb-artist-caption { padding:8px 10px 10px; text-align:center; }
 .rb-artist-caption .name { color:#1B2A4A; font-weight:800; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .rb-artist-caption .meta { color:#6b6248; font-weight:500; letter-spacing:0.03em; margin:1px 0 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rb-headliner-card { position:relative; aspect-ratio:3/4; border-radius:14px; overflow:hidden; background:#1B2A4A; box-shadow:0 8px 20px rgba(0,0,0,0.35); }
+.rb-headliner-overlay { position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.15) 55%, rgba(0,0,0,0) 75%); }
+.rb-headliner-caption { position:absolute; left:0; right:0; bottom:0; padding:14px; z-index:2; }
+.rb-headliner-caption .name { color:#fff; font-weight:800; font-size:20px; margin:0 0 3px; text-shadow:0 2px 6px rgba(0,0,0,0.5); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rb-headliner-caption .meta { color:rgba(255,255,255,0.85); font-size:14px; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 /* Plan Shows: "Landed" stamp on an already-added show, made clickable so
    attendees can change their mind — hover swaps the label + color to a
@@ -841,7 +857,7 @@ input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; 
    bounded by the max instead of stretching unbounded like the old 1fr did. */
 .rb-lineup-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 200px)); gap:14px; padding:16px 20px; background:transparent; justify-content:space-between; }
 .rb-headliner-scroll { display:flex; gap:14px; overflow-x:auto; padding:6px 20px 24px; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; }
-.rb-headliner-scroll .rb-artist-card-wrap { flex:1 1 160px; max-width:230px; scroll-snap-align:start; }
+.rb-headliner-scroll .rb-headliner-card { flex:1 1 200px; max-width:260px; scroll-snap-align:start; }
 /* Social link-out row under each lineup card (Spotify, etc.) */
 .rb-social-row { display:flex; justify-content:center; gap:8px; margin-top:6px; }
 .rb-social-row a { display:flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:50%; background:rgba(0,0,0,0.55); box-shadow:0 2px 6px rgba(0,0,0,0.3); }
