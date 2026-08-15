@@ -130,7 +130,7 @@ def get_all_stays():
     all_activities_df() play for their own pages' filters). The actual
     filtered list rendering still goes through get_top_stays()."""
     sql = """
-        SELECT property_name, zone_id, lz.zone_name, property_type
+        SELECT p.property_name, p.zone_id, lz.zone_name, p.property_type
         FROM property p
         LEFT JOIN location_zone lz ON lz.zone_id = p.zone_id
     """

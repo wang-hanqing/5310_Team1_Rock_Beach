@@ -1108,10 +1108,6 @@ PAGE_5_TITLE = """
 # tier key -> (house count shown, list of exact property.price_tier values it covers)
 PRICE_TIER_CHIPS = [("1", 1, ["Budget", "Midscale"]), ("2", 2, ["Upscale"]), ("3", 3, ["Luxury"])]
 
-PAGE_5_MAP_LABEL = """
-<p style="font-size:15px;font-weight:700;color:#FDF6E3;margin:0 0 10px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">Stay map &middot; venues &amp; stays</p>
-"""
-
 # ── Page 6 · Draw Chance (dining pick is LIVE + re-rollable) ───────────────
 PAGE_6_INTRO = """
 <div style="background:transparent;padding:16px 24px 4px">
@@ -1292,7 +1288,7 @@ app_ui = ui.page_fluid(
                         ui.div(
                             ui.input_select("stay_zone_select", "", choices={"": "All zones"}),
                             ui.input_select("stay_type_select", "", choices={"": "All types"}),
-                            ui.input_select("stay_sort", "", choices={"rating_desc": "Rating: high to low", "rating_asc": "Rating: low to high", "price_asc": "Price: low to high", "price_desc": "Price: high to low"}),
+                            ui.input_select("stay_sort", "", choices={"": "Sort by", "rating_desc": "Rating: high to low", "rating_asc": "Rating: low to high", "price_asc": "Price: low to high", "price_desc": "Price: high to low"}),
                             class_="rb-filter-row",
                             style="padding:0 24px 12px",
                         ),
@@ -1301,13 +1297,14 @@ app_ui = ui.page_fluid(
                         style="flex:1;min-width:280px",
                     ),
                     ui.div(
-                        ui.HTML(PAGE_5_MAP_LABEL),
-                        ui.input_checkbox_group(
-                            "stay_map_categories", "",
-                            choices=["Venue", "Stay", "Dining", "Activity"],
-                            selected=["Venue", "Stay"],
-                            inline=True,
-                        ),
+                        ui.HTML('''
+                        <div style="display:flex;gap:12px;flex-wrap:wrap;padding:0 2px 8px;font-size:11px;color:#FDF6E3;text-shadow:0 1px 4px rgba(0,0,0,0.4)">
+                          <span>&#128308; Venue</span>
+                          <span>&#128309; Stay</span>
+                          <span>&#128992; Dining</span>
+                          <span>&#128994; Activity</span>
+                        </div>
+                        '''),
                         ui.div(
                             output_widget("stay_trip_map", height="500px"),
                             style="border:2px solid #1B2A4A;border-radius:14px;overflow:hidden;box-shadow:0 3px 0 rgba(27,42,74,0.15)",
@@ -1754,18 +1751,34 @@ def server(input, output, session):
             df = map_locations()
         except Exception:
             return
-        # Stay pins only show the one property actually selected (matching
-        # the same "empty until chosen" pattern used for Venue/Dining/
-        # Activity elsewhere in the app) instead of all ~27 properties at
-        # once. Venue/Dining/Activity here keep their existing behavior —
-        # everything in a checked category shows, not just favorites —
-        # since that wasn't asked to change.
+        # Same auto-display logic as the Chance page's map now (no manual
+        # tick-to-show-all checkboxes anymore): Venue shows whatever's on
+        # the attendee's schedule, Stay shows only the one property
+        # actually selected, Dining/Activity show only what's been
+        # favorited — everything appears as the trip gets built up,
+        # instead of a checkbox flooding the map with all ~100 options
+        # in a category the moment it's ticked.
+        _ = schedule_tick.get()
+        attendee = current_attendee.get()
+        added_venues = set()
+        if attendee:
+            try:
+                sched = queries.get_attendee_schedule(attendee["id"])
+                added_venues = set(sched["stage_name"].dropna().unique().tolist())
+            except Exception:
+                added_venues = set()
         picked = selected_stay.get()
-        if picked:
-            df = df[(df["category"] != "Stay") | (df["name"] == picked[0])]
-        else:
-            df = df[df["category"] != "Stay"]
-        _redraw_map_markers(stay_trip_map.widget, df, input.stay_map_categories(), on_marker_click=_on_stay_map_click)
+        picked_name = picked[0] if picked else None
+        favs_r = favorite_restaurant_ids.get()
+        favs_a = favorite_activity_ids.get()
+
+        df_venues = df[(df["category"] == "Venue") & (df["name"].isin(added_venues))]
+        df_stay = df[(df["category"] == "Stay") & (df["name"] == picked_name)] if picked_name else df.iloc[0:0]
+        df_dining = df[(df["category"] == "Dining") & (df["id_value"].astype(str).isin(favs_r))]
+        df_activity = df[(df["category"] == "Activity") & (df["id_value"].astype(str).isin(favs_a))]
+        combined = pd.concat([df_venues, df_stay, df_dining, df_activity], ignore_index=True)
+
+        _redraw_map_markers(stay_trip_map.widget, combined, ["Venue", "Stay", "Dining", "Activity"], on_marker_click=_on_stay_map_click)
 
     # ── Chance page map: added venues (from Plan Shows) + favorited
     # restaurants (from this page's own heart-toggle), so the trip build-up
@@ -1951,8 +1964,8 @@ def server(input, output, session):
         picked_name = picked[0] if picked else None
 
         cards = "".join(
-            _stay_card(r, featured=(i == 0), is_selected=(r["property_name"] == picked_name))
-            for i, r in enumerate(df.to_dict("records"))
+            _stay_card(r, featured=False, is_selected=(r["property_name"] == picked_name))
+            for r in df.to_dict("records")
         )
         return ui.HTML(f'<div style="background:transparent;padding:0 24px 20px"><p style="font-size:14px;color:#E4D8C4;margin:0 0 12px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">{len(df)} stays, live from the database</p>{cards}</div>')
 
