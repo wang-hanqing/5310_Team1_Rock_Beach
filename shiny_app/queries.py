@@ -33,8 +33,7 @@ def _load_coupons() -> pd.DataFrame:
 
 def get_coupon_discount_label(item_type: str, item_id) -> str:
     """Look up the discount_label for a drawn restaurant or activity.
-    Returns None if this particular pick doesn't have a coupon (most won't —
-    only 10 restaurants and 4 activities are in the list)."""
+    Returns None if it has no coupon."""
     df = _load_coupons()
     if item_type == "restaurant":
         match = df[(df["item_type"] == "restaurant") & (df["restaurant_id"] == str(item_id))]
@@ -58,11 +57,8 @@ def get_artists_by_tier(tier: str, limit: int = 3):
 
 
 def get_lineup_grid():
-    """Full lineup (all artists, all tiers), each with its first scheduled
-    venue if it has one — used for the photo-grid Lineup page. Grouping
-    into Headliner/Support/Rising sections happens on the app.py side.
-    Includes spotify_url so each card can link out to the artist's Spotify
-    page (every row has one, even the artists still missing a photo)."""
+    """Full lineup (all artists, all tiers) with each artist's first
+    scheduled venue and spotify_url, for the photo-grid Lineup page."""
     sql = """
         SELECT ar.artist_name, ar.genre, ar.tier, ar.profile_image_url,
                ar.spotify_url, v.stage_name
@@ -124,11 +120,8 @@ def get_schedule_by_day(per_day_limit: int = 6):
 
 
 def get_all_stays():
-    """All properties with zone_name + price_tier, unfiltered — used only
-    to populate the Select Stay page's Zone/Price Tier filter dropdown
-    choices with real values (same role all_restaurants_df()/
-    all_activities_df() play for their own pages' filters). The actual
-    filtered list rendering still goes through get_top_stays()."""
+    """All properties with zone_name + price_tier, unfiltered — populates
+    the Select Stay page's filter dropdown choices."""
     sql = """
         SELECT p.property_name, p.zone_id, lz.zone_name, p.price_tier
         FROM property p
@@ -138,14 +131,9 @@ def get_all_stays():
 
 
 def get_top_stays(zone_id: int = None, price_tiers: list = None, sort: str = "rating_desc", limit: int = 500):
-    """Properties for the Select Stay page. `zone_id` filters on the real
-    zone_id FK now (was previously an ILIKE substring match against
-    section_of_ac — that never matched anything for "Atlantic Ave" since
-    no property's section_of_ac text actually contains those words, see
-    04_venue_property_activity_etl.sql's zone-parsing notes). `price_tiers`
-    is an optional list of exact price_tier values (e.g. ['Luxury']).
-    `sort` is 'rating_desc' (default), 'rating_asc', 'price_asc', or
-    'price_desc'. limit is a safety cap."""
+    """Properties for the Select Stay page. `zone_id` filters on zone_id,
+    `price_tiers` on exact price_tier values, `sort` is 'rating_desc'
+    (default), 'rating_asc', 'price_asc', or 'price_desc'."""
     where = []
     params = {"limit": limit}
     if zone_id is not None:
@@ -175,19 +163,8 @@ def get_top_stays(zone_id: int = None, price_tiers: list = None, sort: str = "ra
     return run_query(sql, params=params)
 
 def get_all_restaurants():
-    """All restaurants for the Draw Chance page's browsable deal list, each
-    left-joined to its coupon (if it has one) so real discounts show up
-    where they exist — most rows will have discount_label/coupon_desc as
-    None, and that's expected (only a handful of restaurants have coupons).
-    Also joined to v_restaurant_badges (Hidden gem / Must try / Local hero
-    — computed from rating + review_count, see 09_restaurant_badges.sql),
-    to location_zone for the zone filter/default, and to cuisine_type for
-    the "type" filter — deliberately the 4 broad cuisine_name groupings
-    (Quick Bites & Snacks / International/Ethnic Cuisine / Fine Dining &
-    Steakhouse / Bars, Brews & Casual), not the much more granular
-    food_category field (Bistro/Pub/Steakhouse/... — dozens of values),
-    which is still selected here for the card's own category text but no
-    longer drives the filter dropdown. Ordered best-rated first."""
+    """All restaurants for the Draw Chance page's browsable deal list, with
+    coupon, badge, zone, and cuisine_type joined in. Ordered by rating."""
     sql = """
         SELECT r.restaurant_id, r.name, r.food_category, r.price_range,
                r.est_cost_per_person_usd,
@@ -208,10 +185,8 @@ def get_all_restaurants():
 
 
 def get_sponsored_coupons():
-    """The subset of coupons that actually have a sponsor attached (7 of
-    14 — see 06_load_remaining_data.sql's sponsor pairing), for the
-    Chance page's "Our Sponsors" strip. Coupons without a sponsor_id are
-    plain unsponsored discounts and aren't included here."""
+    """Coupons that have a sponsor attached, for the Chance page's
+    "Our Sponsors" strip."""
     sql = """
         SELECT c.coupon_id, c.item_type, c.discount_label, c.coupon_desc,
                s.sponsor_name
@@ -223,14 +198,8 @@ def get_sponsored_coupons():
 
 
 def get_all_activities():
-    """All activities for the Draw Chance page's browsable deal list —
-    same shape/purpose as get_all_restaurants() above, just sourced from
-    activity + activity_category instead of restaurant, with the same
-    left-join-to-coupon pattern so real discounts surface where they exist.
-    Also joined to location_zone for the zone filter, matching restaurant's
-    treatment. No google_maps_url/yelp_url exist for activity in this
-    schema — the app builds a Google Maps *search* link from the activity
-    name + location_desc at render time instead of relying on a stored URL."""
+    """All activities for the Draw Chance page's browsable deal list, with
+    coupon and zone joined in."""
     sql = """
         SELECT a.activity_id, a.activity_name, a.description, a.location_desc,
                a.price_usd, a.duration_min, ac.category_name,
@@ -273,15 +242,9 @@ def get_random_activity():
 
 
 def get_chance_card(attendee_id: int):
-    """The actual Draw Chance pick: a restaurant or activity that (a) has a
-    coupon attached and (b) fits one of this attendee's real free-time gaps
-    between added shows. Reads the DB architect's v_downtime_chance_cards
-    view exactly as specified in 06_chance_cards.sql:
-        SELECT * FROM v_downtime_chance_cards WHERE attendee_id = $1
-        ORDER BY random() LIMIT 1
-    Returns None if there's no attendee yet, or no gap-fitting coupon match
-    right now (e.g. no shows added, or no downtime long enough) — that's an
-    expected, normal state, not an error."""
+    """The Draw Chance pick: a restaurant/activity with a coupon that fits
+    a free-time gap in this attendee's schedule. Returns None if there's
+    no match yet."""
     if attendee_id is None:
         return None
     sql = """
@@ -299,13 +262,8 @@ def get_chance_card(attendee_id: int):
 
 def get_daily_headliner_posters():
     """One featured headliner performance per festival day (earliest set
-    time that day) — used for the Pass Go page's 3 deed-card posters.
-
-    Day 1 (Aug 21) has a genuine tie: Coldplay and Justin Bieber both
-    have a Headliner performance at the exact same start_time (21:00),
-    on different stages. The tiebreak below is an explicit editorial
-    choice to feature Coldplay on that day's poster — not a bug fix,
-    just picking a winner for a tie the query alone can't resolve."""
+    time), for the Pass Go page's 3 deed-card posters. Day 1 ties are
+    broken in favor of Coldplay (editorial choice)."""
     sql = """
         SELECT fd.day_number, fd.day_date, ar.artist_id, ar.artist_name,
                ar.profile_image_url, v.stage_name
@@ -338,10 +296,8 @@ def add_attendee(name: str, email: str):
 
 
 def get_performances(day: int = None, tier: str = None, search: str = None, venue: str = None, time_slot: str = None, limit: int = 20):
-    """Performances for the Plan Shows filter bar (day / tier / artist
-    search / venue / time_slot, all optional). Returns performance_id so
-    callers can add/track a specific show, plus a total_count (pre-LIMIT)
-    for a '+N more' note."""
+    """Performances for the Plan Shows filter bar. Returns performance_id
+    and a pre-LIMIT total_count."""
     where = []
     params = {}
     if day:
@@ -377,17 +333,13 @@ def get_performances(day: int = None, tier: str = None, search: str = None, venu
 
 
 def get_performance_time_slots():
-    """Distinct performance start times across the whole festival, for
-    the Plan Shows time-slot filter dropdown — populated from real data
-    instead of a hardcoded guess at what slots exist."""
+    """Distinct performance start times, for the time-slot filter dropdown."""
     sql = "SELECT DISTINCT start_time FROM performance ORDER BY start_time"
     return run_query(sql)
 
 
 def get_venues():
-    """All venues, for the reusable zone/type-colored map component
-    (venue has no zone column in this schema, so pins are colored by
-    stage_type — Main vs Secondary — instead)."""
+    """All venues, for the map component (colored by stage_type)."""
     sql = "SELECT stage_name, stage_type, latitude, longitude FROM venue"
     return run_query(sql)
 
@@ -403,10 +355,8 @@ def get_attendee_performance_ids(attendee_id: int):
 
 
 def add_attendee_performance(attendee_id: int, performance_id: int):
-    """Add a performance to an attendee's personal schedule. The database
-    has a BEFORE INSERT trigger (check_performance_conflict) that raises
-    an exception if this overlaps a same-day performance already added —
-    that exception propagates up to the caller to show as a warning."""
+    """Add a performance to an attendee's schedule. A BEFORE INSERT trigger
+    raises an exception on same-day overlap."""
     sql = """
         INSERT INTO attendee_performance (attendee_id, performance_id)
         VALUES (%(attendee_id)s, %(performance_id)s)
@@ -416,9 +366,7 @@ def add_attendee_performance(attendee_id: int, performance_id: int):
 
 
 def get_performance_venue(performance_id: int):
-    """Venue name + coordinates for one performance — used to fly the Plan
-    Shows venue map straight to that spot right after an attendee adds a
-    show there, so Add visibly "connects" to a pin on the map."""
+    """Venue name + coordinates for one performance."""
     sql = """
         SELECT v.stage_name, v.latitude, v.longitude
         FROM performance p
@@ -430,9 +378,7 @@ def get_performance_venue(performance_id: int):
 
 
 def remove_attendee_performance(attendee_id: int, performance_id: int):
-    """Undo an Add — lets an attendee change their mind and remove a show
-    from their personal schedule (the Plan Shows 'Landed' stamp becomes
-    clickable to trigger this)."""
+    """Remove a show from an attendee's personal schedule."""
     sql = """
         DELETE FROM attendee_performance
         WHERE attendee_id = %(attendee_id)s AND performance_id = %(performance_id)s
@@ -442,10 +388,7 @@ def remove_attendee_performance(attendee_id: int, performance_id: int):
 
 
 def get_attendee_schedule(attendee_id: int):
-    """This attendee's added shows, day by day, earliest first — for the
-    My 3-Day Schedule board-path page. Reads the DB architect's
-    v_attendee_schedule view (attendee_performance JOIN performance,
-    artist, venue, festival_day) instead of re-deriving the join here."""
+    """This attendee's added shows, day by day, from v_attendee_schedule."""
     if attendee_id is None:
         return pd.DataFrame()
     sql = """
@@ -458,10 +401,8 @@ def get_attendee_schedule(attendee_id: int):
 
 
 def get_attendee_downtime(attendee_id: int):
-    """Free-time gaps between this attendee's consecutive added shows on
-    the same day — reads the DB architect's v_attendee_downtime view
-    (built with LEAD() over v_attendee_schedule). Reused as-is by Draw
-    Chance later for its 'free time right now' recommendations."""
+    """Free-time gaps between this attendee's added shows, from
+    v_attendee_downtime."""
     if attendee_id is None:
         return pd.DataFrame()
     sql = """
@@ -487,12 +428,8 @@ def get_counts():
 
 
 def _jitter_duplicate_coords(df: pd.DataFrame, radius_deg: float = 0.00035) -> pd.DataFrame:
-    """Some locations share the exact same lat/lon (e.g. multiple venues
-    inside the same casino building). Spread exact duplicates in a small
-    circle around the original point so every marker on the interactive map
-    is separately visible/clickable instead of stacking on top of each
-    other. Points with unique coordinates are left untouched. (Ported from
-    the DB architect's own map-demo script.)"""
+    """Spreads locations sharing the exact same lat/lon into a small circle
+    so every map marker is separately visible/clickable."""
     df = df.copy()
     df["latitude"] = df["latitude"].astype(float)
     df["longitude"] = df["longitude"].astype(float)
@@ -508,14 +445,8 @@ def _jitter_duplicate_coords(df: pd.DataFrame, radius_deg: float = 0.00035) -> p
 
 
 def get_map_locations():
-    """Unified Venue/Stay/Dining/Activity dataset (name, latitude,
-    longitude, category, description, id_value) for the interactive trip
-    map, read live from the database. id_value is the row's real primary
-    key (stage_id/property_name/restaurant_id/activity_id — property has
-    no separate id column already in use elsewhere in the app, so its
-    name doubles as the key, same as selected_stay's own storage), used
-    to wire map clicks to the same select/favorite actions the list/card
-    views already trigger, instead of markers being decorative-only."""
+    """Unified Venue/Stay/Dining/Activity dataset (name, lat, lon, category,
+    description, id_value) for the interactive trip map."""
     venues = run_query("SELECT stage_id AS id_value, stage_name AS name, stage_type AS description, latitude, longitude FROM venue")
     venues["category"] = "Venue"
 
@@ -538,9 +469,7 @@ def get_map_locations():
 
 # ── Trip Summary / Budget queries ────────────────────────────────────────────
 def get_stay_details(property_name: str):
-    """Price range + map link for the attendee's single selected stay
-    (session-only selected_stay reactive value stores just the name, not
-    a property_id, so this looks it up by name)."""
+    """Price range + map link for the selected stay, looked up by name."""
     if not property_name:
         return None
     sql = """

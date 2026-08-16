@@ -30,11 +30,7 @@ from ipywidgets import HTML as LeafletPopupHTML
 
 import queries
 
-# Real interactive trip map (Venue/Stay/Dining/Activity pins), replacing the
-# old flat dot-plot placeholders on Plan Shows and Select Stay. Built with
-# ipyleaflet + shinywidgets — ported from the DB architect's own map-demo
-# script (05. Map/app.py), reading live from the database via
-# queries.get_map_locations() instead of that script's static CSVs.
+# Interactive trip map (Venue/Stay/Dining/Activity pins), built with ipyleaflet + shinywidgets.
 MAP_CATEGORY_STYLE = {
     "Venue": {"marker_color": "red", "icon": "music"},
     "Stay": {"marker_color": "blue", "icon": "bed"},
@@ -45,16 +41,9 @@ AC_MAP_CENTER = (39.36, -74.43)
 
 
 def _redraw_map_markers(leaflet_map, df, selected_categories, highlight_names=None, on_marker_click=None):
-    """Clear all non-tile layers off the given ipyleaflet Map and redraw
-    markers for whichever categories are currently selected.
-    `highlight_names` (optional set of `name` values) renders those rows
-    with a gold star marker instead of the category's default color, and
-    calls that out in the popup — used by the Plan Shows map to visibly
-    connect a venue pin to shows the attendee has actually added.
-    `on_marker_click` (optional callback(row_dict)) wires a real action to
-    clicking a marker — e.g. selecting that stay, favoriting that
-    restaurant/activity — instead of the marker being decorative and only
-    showing a popup on click."""
+    """Redraws map markers for the selected categories. `highlight_names`
+    renders matching rows with a gold star marker. `on_marker_click` wires
+    a callback(row_dict) to marker clicks."""
     leaflet_map.layers = tuple(layer for layer in leaflet_map.layers if isinstance(layer, TileLayer))
     if df is None or len(df) == 0 or not selected_categories:
         return
@@ -74,10 +63,7 @@ def _redraw_map_markers(leaflet_map, df, selected_categories, highlight_names=No
         marker.popup = LeafletPopupHTML(value=f"{added_tag}<b>{row['name']}</b><br>{row['category']}<br>{desc}{action_hint}")
         if on_marker_click:
             row_dict = row.to_dict()
-            # Default-arg trick to bind THIS row's data into the closure —
-            # without it every marker's handler would see the last row of
-            # the loop instead of its own (the classic Python late-binding
-            # closure bug).
+            # Default-arg trick to bind this row's data into the closure.
             marker.on_click(lambda *, _row=row_dict, **kwargs: on_marker_click(_row))
         leaflet_map.add_layer(marker)
 
@@ -112,11 +98,9 @@ DICE_SVG = (
 )
 DICE_SVG_DARK = DICE_SVG.replace("#B9C4DC", "#1B2A4A")
 
-# Larger versions of the icons above, used only in the desktop-sized stepper
-# strip (stepper_html) where the default icon size reads too small.
+# Larger icon versions used in the desktop stepper strip.
 BUS_SVG_LG = BUS_SVG.replace('width="14" height="14"', 'width="22" height="22"')
-# Light-colored dice (not the dark variant) since the stepper now sits on
-# the dark shadow-photo background instead of white.
+# Light-colored dice, used on the dark stepper background.
 DICE_SVG_LG = DICE_SVG.replace('width="11" height="11"', 'width="16" height="16"')
 
 # Spotify logo mark, used as a small link-out button under each Lineup card.
@@ -127,9 +111,7 @@ SPOTIFY_SVG = (
     '</svg>'
 )
 
-# Generic review-site / map-pin glyphs for the restaurant card's link-out
-# row — simple shapes in each service's associated color, not a trace of
-# either company's actual logo mark.
+# Generic review-site / map-pin glyphs, not a trace of either company's logo.
 YELP_ICON_SVG = (
     '<svg width="14" height="14" viewBox="0 0 24 24" style="margin-right:4px;vertical-align:-2px">'
     '<circle cx="12" cy="12" r="12" fill="#D32323"/>'
@@ -145,8 +127,8 @@ GMAPS_ICON_SVG = (
 
 
 def stepper_html(current: int) -> str:
-    """Build the horizontal step tracker for step-pages (index 1..7 in the
-    overall flow; `current` is 0-based within STEP_LABELS)."""
+    """Horizontal step tracker for step-pages 1..7 (`current` is 0-based
+    within STEP_LABELS)."""
     items = []
     for i, label in enumerate(STEP_LABELS):
         color = STEP_COLORS[i]
@@ -185,8 +167,7 @@ def stepper_html(current: int) -> str:
 
 # ── Live-data render helpers ─────────────────────────────────────────────────
 def _fmt_time(t) -> str:
-    """Format a datetime.time as '6:00 PM' without relying on platform-
-    specific strftime flags (Windows doesn't support %-I)."""
+    """Format a datetime.time as '6:00 PM'."""
     if t is None or (isinstance(t, float) and pd.isna(t)):
         return ""
     hour = t.hour % 12 or 12
@@ -203,12 +184,7 @@ def _db_error_box(message: str) -> str:
 
 
 def _monopoly_toast(text: str, icon: str = "&#127922;"):
-    """A small deed-card-styled toast for ui.notification_show — cream
-    card, navy border, slight rotation like the .token chips elsewhere,
-    replacing Shiny's plain default gray notification bar so confirmation
-    pop-ups (Add a show, Select a stay, favorite a restaurant/activity)
-    match the rest of the site's Monopoly styling instead of looking like
-    generic framework chrome."""
+    """Deed-card-styled toast for ui.notification_show."""
     return ui.HTML(f'''
     <div style="background:#FDF6E3;border:2px solid #1B2A4A;border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 3px 0 rgba(27,42,74,0.2);transform:rotate(-1deg)">
       <span style="font-size:20px;flex-shrink:0">{icon}</span>
@@ -224,11 +200,7 @@ FALLBACK_GRADIENTS = [
     "linear-gradient(160deg, #FFD84D 0%, #7A5A00 100%)",
 ]
 
-# Illustrated cuisine-bucket art (shipped in www/) for the restaurant deal
-# tiles on the Draw Chance page — food_category has ~30 distinct granular
-# values (Steakhouse, Subs, Sushi, Bakery, ...) with no broader "cuisine
-# group" column in the schema, so this keyword-buckets each one into
-# whichever of the 4 illustrated cards fits best.
+# Illustrated cuisine-bucket art (www/) for the Draw Chance restaurant tiles.
 _CUISINE_KEYWORDS = {
     "cuisine_fine_dining.jpg": ("steak", "fine dining", "chophouse", "seafood", "bistro"),
     "cuisine_bars_brews.jpg": ("brew", "beer", "pub", "distillery", "bar", "cocktail"),
@@ -244,14 +216,11 @@ def _restaurant_cuisine_image(food_category: str) -> str:
     for img, keywords in _CUISINE_KEYWORDS.items():
         if any(k in fc for k in keywords):
             return img
-    # Default bucket: everything quick/casual (subs, food trucks, bakeries,
-    # ice cream, donuts, candy, snacks, etc.) — the most common case.
+    # Default bucket: quick/casual food (subs, trucks, bakeries, snacks, etc.).
     return "cuisine_quick_bites.jpg"
 
 
-# Illustrated activity-category art (shipped in www/), keyed by the exact
-# 7 activity_category.category_name values in the shared schema (boardwalk,
-# beach, casino, cultural, shopping, nightlife, water_sports).
+# Illustrated activity-category art (www/), keyed by activity_category.category_name.
 _ACTIVITY_CATEGORY_IMAGES = {
     "beach": "activity_cat_beach.jpg",
     "boardwalk": "activity_cat_boardwalk.jpg",
@@ -268,11 +237,7 @@ def _activity_category_image(category_name: str):
     return _ACTIVITY_CATEGORY_IMAGES.get(slug)
 
 
-# Locally-supplied artist photos (shipped in www/artist_photos/), for artists
-# whose DB row has no profile_image_url yet. Keyed by a slug of the artist
-# name — same slug-a-name-into-a-filename pattern as the Stay page's
-# www/stay_photos/. DB photo (if present) always wins; this is just a
-# fallback ahead of the hashed-gradient placeholder.
+# Locally-supplied artist photos (www/artist_photos/), keyed by artist-name slug.
 ARTIST_PHOTOS_DIR = Path(__file__).parent / "www" / "artist_photos"
 
 
@@ -280,12 +245,7 @@ def _slugify(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
 
 
-# Public-domain / Creative-Commons press photos (Wikimedia Commons) for
-# lineup artists whose DB row doesn't have a profile_image_url yet. Used
-# only as a last-resort fallback (ahead of the hashed-gradient placeholder,
-# behind both the DB photo and any locally-supplied www/artist_photos/ file)
-# — swap any of these out any time by adding a real photo to the DB or to
-# www/artist_photos/<slug>.jpg.
+# Wikimedia Commons fallback photos for lineup artists with no DB photo.
 FALLBACK_ARTIST_PHOTO_URLS = {
     "5 seconds of summer": "https://commons.wikimedia.org/wiki/Special:FilePath/5%20Seconds%20of%20Summer%202023.jpg",
     "clairo": "https://commons.wikimedia.org/wiki/Special:FilePath/Clairo%20May%202019%20(cropped%20upper).jpg",
@@ -296,11 +256,9 @@ FALLBACK_ARTIST_PHOTO_URLS = {
 
 
 def _artist_photo_src(row):
-    """Returns an <img src="..."> value for this artist: the DB's
-    profile_image_url if set, else a locally-provided photo in
-    www/artist_photos/<slug>.jpg if one exists, else a Wikimedia Commons
-    fallback photo if we have one on file for this artist, else None
-    (caller falls back to the hashed-gradient placeholder)."""
+    """Returns an <img src="..."> value for this artist: DB
+    profile_image_url, else a local photo, else a Wikimedia Commons
+    fallback, else None (caller falls back to a gradient placeholder)."""
     img = row.get("profile_image_url")
     if isinstance(img, str) and img.strip():
         return img
@@ -318,16 +276,10 @@ def _artist_photo_src(row):
 
 
 def _lineup_grid_card(row, large=False) -> str:
-    """One card for the photo-grid Lineup page.
-    `large=True` (Headliner tier): full-bleed photo with a dark gradient
-    overlay and the name/genre overlaid in white at the bottom, no card
-    border — the original, more dramatic treatment, kept specifically
-    for headliners so their images stay big and eye-catching (an inset
-    photo + separate caption area, like support/rising below get, would
-    eat into how large the actual image reads).
-    `large=False` (Support/Rising): the A+B card look — cream card with
-    a navy border, square photo inset with a small margin, name/genre as
-    plain text below the photo on the cream background."""
+    """One card for the photo-grid Lineup page. `large=True` (Headliner):
+    full-bleed photo with a dark gradient overlay, name/genre in white.
+    `large=False` (Support/Rising): cream card with navy border, inset
+    square photo, plain-text caption below."""
     name = row["artist_name"]
     img_src = _artist_photo_src(row)
     if img_src:
@@ -377,14 +329,9 @@ def _lineup_grid_card(row, large=False) -> str:
 
 
 def _plan_show_card(row, added: bool) -> str:
-    """One card for the Plan Shows lineup-style grid — same A+B card
-    language as the Lineup page (cream card, navy border, inset square
-    photo, plain-text caption below on the cream background), captioned
-    with artist name + stage. Time isn't repeated here — each grid is
-    already grouped under its own time-slot header right above it, so
-    putting the time on the card too was redundant, and worse, made
-    captions different heights depending on venue name length. Plus an
-    Add / Landed-here action badge in the photo's top-right corner."""
+    """One card for the Plan Shows grid — cream card, navy border, inset
+    square photo, caption with artist name + stage. Add / Landed-here
+    action badge in the photo's top-right corner."""
     name = row["artist_name"]
     img_src = _artist_photo_src(row)
     if img_src:
@@ -394,8 +341,7 @@ def _plan_show_card(row, added: bool) -> str:
         bg_layer = f'<div style="width:100%;height:100%;background:{gradient}"></div>'
 
     if added:
-        # Clickable version of the "Landed" stamp — hover swaps the label to
-        # "Remove" so it's clear it can be undone, click fires rbRemoveShow.
+        # "Landed" stamp — hover shows "Remove", click fires rbRemoveShow.
         action = f'''<span class="token rb-landed-token" style="position:absolute;top:6px;right:6px;z-index:3" onclick="rbRemoveShow({row["performance_id"]})" title="Click to remove from your schedule">
           <span class="rb-landed-default-text">&#10003; Landed</span>
           <span class="rb-landed-hover-text">&#10005; Remove</span>
@@ -479,10 +425,7 @@ def _schedule_day_col(idx, day_number, info) -> str:
     </div>'''
 
 
-# Hotel exterior photos (shipped in www/stay_photos/, keyed by a slug of the
-# property name so no extra DB column is needed). Falls back to the same
-# hashed-gradient treatment as the Lineup cards for the one property with no
-# sourced photo (Super 8 by Wyndham Atlantic City).
+# Hotel exterior photos (www/stay_photos/, keyed by property-name slug).
 STAY_PHOTOS_DIR = Path(__file__).parent / "www" / "stay_photos"
 
 
@@ -517,8 +460,7 @@ def _stay_card(row, featured=False, is_selected=False) -> str:
     if isinstance(gmaps_url, str) and gmaps_url.strip():
         maps_link_row = f'<div style="margin-top:6px"><a href="{html.escape(gmaps_url, quote=True)}" target="_blank" rel="noopener" class="rb-restaurant-link gmaps" title="View on Google Maps">{GMAPS_ICON_SVG}Google Maps</a></div>'
 
-    # Amenity icons — only shown when the value is actually True (not
-    # False or NaN/"Unclear", which several has_pool rows are).
+    # Amenity icons shown only when the value is True.
     amenities = []
     if row.get("has_casino") == True:
         amenities.append('<span title="Has a casino">&#127920;</span>')
@@ -528,9 +470,7 @@ def _stay_card(row, featured=False, is_selected=False) -> str:
         amenities.append('<span title="Has an on-site restaurant">&#127869;&#65039;</span>')
     amenities_row = f'<span style="font-size:15px;margin-left:8px;letter-spacing:2px">{"".join(amenities)}</span>' if amenities else ""
 
-    # Add / Selected action — same clickable-stamp pattern as Plan Shows'
-    # Add/Landed button (session-only state; there's no attendee_property
-    # table in the shared schema yet to persist this to).
+    # Add / Selected action — same clickable-stamp pattern as Plan Shows.
     name_attr = html.escape(row["property_name"], quote=True)
     zone_attr = html.escape(str(row.get("section_of_ac") or ""), quote=True)
     if is_selected:
@@ -558,16 +498,9 @@ def _stay_card(row, featured=False, is_selected=False) -> str:
 
 
 def _restaurant_card_html(row, is_fav: bool) -> str:
-    """One restaurant tile for the Draw Chance page's grid list — a
-    photo-block top (colorful gradient fallback, no restaurant photos
-    exist in the schema) with the computed local-flavor badge (Hidden
-    gem / Must try / Local hero — v_restaurant_badges, rating +
-    review_count based) top-left and the favorite heart top-right, then
-    name / rating / category / price ($ notation, matching the raw
-    price_range data directly instead of a house-icon reinterpretation)
-    and Yelp/Google Maps link-out icons below. Coupon/discount info is
-    deliberately not shown here anymore — that's what the Chance card
-    draw is for; this list is just the browsable full set."""
+    """One restaurant tile for the Draw Chance grid: gradient photo top
+    with local-flavor badge (top-left) and favorite heart (top-right),
+    then name / rating / category / price and Yelp/Google Maps links."""
     name = row.get("name") or "Restaurant"
     category = row.get("food_category") or ""
     photo_bg = f"background-image:url('{_restaurant_cuisine_image(category)}');background-size:cover;background-position:center"
@@ -608,10 +541,7 @@ def _restaurant_card_html(row, is_fav: bool) -> str:
 
 
 def _activity_price_bucket(price_usd) -> str:
-    """Maps activity.price_usd (a plain dollar amount — no existing $
-    string to match, unlike restaurant.price_range) onto the same $
-    notation used for restaurants. Thresholds picked off this dataset's
-    real range ($0-$85): 0=Free, then roughly even bands."""
+    """Maps activity.price_usd to $ notation: 0=Free, then $/$$/$$$/$$$$."""
     if pd.isna(price_usd):
         return ""
     price_usd = float(price_usd)
@@ -627,16 +557,9 @@ def _activity_price_bucket(price_usd) -> str:
 
 
 def _activity_card_html(row, is_fav: bool) -> str:
-    """One activity tile for the Draw Chance page — same tile template as
-    _restaurant_card_html (reuses the rb-restaurant-* classes, since
-    visually it's the same "deal card" component), sourced from activity
-    + activity_category instead of restaurant. Price now uses the same $
-    notation as restaurants (via _activity_price_bucket) instead of the
-    old house-icon tiers. No stored Google Maps/Yelp URL exists for
-    activity in this schema, so the Maps link is built as a live search
-    query (name + location) instead of a stored link — same destination
-    for the user, no new data needed. Category text and coupon/discount
-    info are deliberately not shown on this card anymore."""
+    """One activity tile for the Draw Chance page, same template as
+    _restaurant_card_html. Maps link is a live Google search query
+    (name + location), since no stored URL exists for activity."""
     name = row.get("activity_name") or "Activity"
     category = row.get("category_name") or ""
     cat_img = _activity_category_image(category)
@@ -670,13 +593,9 @@ def _activity_card_html(row, is_fav: bool) -> str:
 
 
 def _chance_card_html(row) -> str:
-    """One Monopoly-style chance card: the hand-drawn Dining/Activity card
-    art, with the live pick's name + real coupon overlaid in the cream panel
-    near the bottom of the card (where the static art has its '5% discount'
-    callout). `row` comes from the DB architect's v_downtime_chance_cards
-    view (06_chance_cards.sql) — every row it returns already has a coupon
-    attached via an inner join, so the discount always has real content
-    here (no fallback needed)."""
+    """One Monopoly-style chance card: hand-drawn Dining/Activity art
+    with the live pick's name + coupon overlaid near the bottom. `row`
+    comes from v_downtime_chance_cards."""
     category = "Dining" if row["item_type"] == "restaurant" else "Activity"
     img = "chance_card_dining.jpg" if category == "Dining" else "chance_card_activity.jpg"
     name = row.get("item_name") or "Mystery pick"
@@ -688,19 +607,14 @@ def _chance_card_html(row) -> str:
         if sponsor_name else ""
     )
 
-    # Save button carries the pick's details as data-* attributes so the
-    # JS click handler (rbSaveChance) can forward them to Shiny as a real
-    # input event — that's what makes them show up on the Summary page.
+    # Save button carries the pick's details as data-* attributes for the JS handler.
     name_attr = html.escape(name, quote=True)
     discount_attr = html.escape(discount, quote=True)
     desc_attr = html.escape(desc, quote=True)
     category_attr = html.escape(category, quote=True)
     item_id_attr = html.escape(str(row.get("item_id") or ""), quote=True)
 
-    # Wrapped in a 3D flip container: starts showing the navy "?" back face,
-    # then rotates to reveal the real card. It's pure CSS (rbCardFlip
-    # keyframes below), so it auto-plays every time Shiny swaps in a fresh
-    # chance_pick div — no JS trigger needed.
+    # 3D flip container: navy "?" back face rotates to reveal the real card (pure CSS).
     return f'''
     <div class="rb-flip-card">
       <div class="rb-flip-card-inner">
@@ -1079,9 +993,7 @@ if (window.Shiny) {
 """
 
 
-# ── Page 1 · Pass Go (landing) ──────────────────────────────────────────────
-# Split into static top (nav + hero + CTA banner) / a real GO button that
-# opens a registration modal / LIVE daily posters / static color stripe.
+# Page 1 · Pass Go (landing): nav + hero + CTA banner, GO button opens registration, live daily posters.
 PAGE_1_NAV = """
 <div class="rb-navbar">
   <div class="rb-logo">🎸 ROCK &amp; BEACH</div>
@@ -1094,9 +1006,7 @@ PAGE_1_NAV = """
 """
 
 
-# Full 3-day lineup graphic, shown as a popup when any daily poster is
-# clicked. Sits outside the .rb-page structure (appended once, right after
-# the page frame) so it can overlay whichever page is currently active.
+# Full 3-day lineup graphic, shown as a popup when a daily poster is clicked.
 LINEUP_MODAL_HTML = """
 <div id="rbLineupModal" class="rb-lineup-modal-overlay" onclick="if(event.target===this){rbCloseLineupModal()}">
   <span class="rb-lineup-modal-close" onclick="rbCloseLineupModal()">&times;</span>
@@ -1141,10 +1051,7 @@ PAGE_5_TITLE = """
 </div>
 """
 
-# Zone chips filter on property.section_of_ac via an ILIKE substring match
-# (label shown to the user -> substring sent to the query). Price tier chips
-# are a multi-select over property.price_tier's exact values, grouped by
-# house-count the same way _stay_card already displays them.
+# Zone chips filter on property.section_of_ac; price tier chips group by house-count.
 # tier key -> (house count shown, list of exact property.price_tier values it covers)
 
 # ── Page 6 · Draw Chance (dining pick is LIVE + re-rollable) ───────────────
@@ -1154,12 +1061,8 @@ PAGE_6_INTRO = """
 </div>
 """
 
-# ── Page 7 · Trip Deed (was "Trip Summary") ────────────────────────────────
-# Fully live: header/shows/stay/dining/restaurants/activities/footer are all
-# @render.ui functions in the server section below, reading real session +
-# database state instead of hardcoded placeholder text. Budget estimate
-# lives on the Bank page now (folded into bank_content), not here — moved
-# so it sits next to the ticket-tier choice it actually helps inform.
+# Page 7 · Trip Deed — live header/shows/stay/dining/restaurants/activities/footer.
+# Budget estimate lives on the Bank page (folded into bank_content).
 
 # ── Page 8 · The Bank ───────────────────────────────────────────────────────
 PAGE_8_TOP = """
@@ -1377,19 +1280,9 @@ app_ui = ui.page_fluid(
 
 def server(input, output, session):
     # Attendee identity for this session, captured at Pass Go / GO signup.
-    # Everything downstream (Add a show, Select stay, etc.) writes against
-    # this id — there's no separate login system.
     current_attendee = reactive.value(None)
 
-    # ── Page 5: Select Stay zone/price filters ────────────────────────────
-    # ── Page 5: Select Stay zone/price-tier filters ───────────────────────
-    # Both Zone and Price Tier are real dropdowns now, using actual
-    # property.zone_id / property.price_tier values (Zone was previously
-    # a chip-based ILIKE text hack — see get_top_stays()'s docstring for
-    # why that never worked for "Atlantic Ave"; Price Tier was previously
-    # a separate house-icon chip row grouping Budget+Midscale together —
-    # now it's its own dropdown with the 4 real price_tier values, no
-    # separate chip row needed).
+    # Page 5: Select Stay zone/price-tier filters — real dropdowns using property.zone_id / price_tier.
     @reactive.calc
     def all_stays_df():
         try:
@@ -1471,9 +1364,7 @@ def server(input, output, session):
     conflict_msg = reactive.value("")
     schedule_tick = reactive.value(0)  # bumped after every add, so performance_list re-renders
 
-    # Venue dropdown starts as just "All venues" and gets real choices
-    # filled in here once loaded — same dynamic-population pattern as the
-    # Chance page's country/type filters.
+    # Venue dropdown choices populate from live DB data on load.
     @reactive.effect
     def _populate_venue_filter():
         try:
@@ -1508,8 +1399,7 @@ def server(input, output, session):
             venue_raw = (input.pf_venue() or "").strip()
             time_raw = (input.pf_time() or "").strip()
             search = (input.pf_search() or "").strip()
-            # No cap — every matching show is shown, grouped by date below,
-            # instead of truncating at a small limit like the old list view.
+            # Every matching show is shown, grouped by date below.
             df, total = queries.get_performances(
                 day=int(day_raw) if day_raw else None,
                 tier=None,
@@ -1529,11 +1419,7 @@ def server(input, output, session):
         except Exception:
             added_ids = set()
 
-        # Table-style layout: one row per festival day, date label in a
-        # fixed-width left column. Inside that column's content, headliners
-        # get their own dedicated row up top, then the remaining artists are
-        # split into further rows by start time (2:00 PM shows together,
-        # 5:00 PM shows together, etc.) instead of one continuous grid.
+        # One row per festival day: headliners first, then remaining artists by start time.
         rows = []
         for day_number in sorted(df["day_number"].unique()):
             day_group = df[df["day_number"] == day_number]
@@ -1547,12 +1433,7 @@ def server(input, output, session):
                     _plan_show_card(r, added=(r["performance_id"] in added_ids))
                     for r in rows_df.to_dict("records")
                 )
-                # capped=True (headliner row): fixed 170-200px card width so
-                # 1-2 headliners don't stretch to fill the whole row width
-                # the way the time-slot groups below are meant to. Left-
-                # aligned (not centered) so it stays lined up with the date
-                # column and the rows underneath instead of floating in the
-                # middle of the row.
+                # capped=True (headliner row): fixed-width cards, left-aligned.
                 extra = "grid-template-columns:repeat(auto-fit, minmax(195px, 230px));justify-content:start;" if capped else "grid-template-columns:repeat(auto-fit, minmax(145px, 180px));"
                 return f'<div class="rb-lineup-grid" style="padding:0;margin:0 0 16px;{extra}">{cards}</div>'
 
@@ -1630,8 +1511,7 @@ def server(input, output, session):
             queries.add_attendee_performance(attendee["id"], int(performance_id))
             conflict_msg.set("")
             ui.notification_show(_monopoly_toast("Added to your schedule"), duration=3)
-            # Fly the venue map straight to this show's stage, so Add
-            # visibly connects to a pin instead of leaving the map generic.
+            # Fly the venue map to this show's stage.
             try:
                 venue = queries.get_performance_venue(int(performance_id))
                 if venue is not None and pd.notna(venue["latitude"]) and pd.notna(venue["longitude"]):
@@ -1653,8 +1533,7 @@ def server(input, output, session):
     @reactive.effect
     @reactive.event(input.remove_click)
     def _remove_show():
-        # Undo an Add — the "Landed" stamp on Plan Shows is clickable and
-        # fires this, so attendees can change their mind before moving on.
+        # Undo an Add — fired by the clickable "Landed" stamp.
         attendee = current_attendee.get()
         if not attendee:
             return
@@ -1666,11 +1545,7 @@ def server(input, output, session):
             conflict_msg.set(f"couldn't remove that show ({e}).")
         schedule_tick.set(schedule_tick.get() + 1)
 
-    # ── Real interactive trip map (Venue/Stay/Dining/Activity) ──────────
-    # Shared cached dataset (reactive.calc caches within a session, so
-    # having two map instances on two different pages doesn't double the
-    # database round-trips) plus one ipyleaflet widget per page, each
-    # redrawn whenever that page's category checkboxes change.
+    # Interactive trip map (Venue/Stay/Dining/Activity), one ipyleaflet widget per page.
     @reactive.calc
     def map_locations():
         return queries.get_map_locations()
@@ -1685,9 +1560,7 @@ def server(input, output, session):
             df = map_locations()
         except Exception:
             return  # widget just stays empty; page still has performance_list's own error box for DB issues
-        # Reading these .get()s (rather than passing them in as args) is
-        # what makes this effect a dependent of both — so the map redraws
-        # itself with the right gold stars right after every Add/Remove.
+        # Reading these .get()s makes this effect depend on both.
         _ = schedule_tick.get()
         attendee = current_attendee.get()
         added_venues = set()
@@ -1697,24 +1570,15 @@ def server(input, output, session):
                 added_venues = set(sched["stage_name"].dropna().unique().tolist())
             except Exception:
                 added_venues = set()
-        # Only venues the attendee has actually added get a pin — the map
-        # starts empty and pins appear as shows get added, instead of
-        # always showing all 5 venues with the added ones merely
-        # highlighted. Plain red music-note pins (MAP_CATEGORY_STYLE's
-        # default Venue style) work fine here now that there's nothing
-        # else on the map to distinguish them from.
+        # Only added venues get a pin; red music-note pin style.
         df_added = df[df["name"].isin(added_venues)] if len(added_venues) else df.iloc[0:0]
-        # Clicking a pin sets the existing pf_venue dropdown to that venue
-        # — reuses the filter that's already wired to performance_list,
-        # rather than building a second, parallel filtering path.
+        # Clicking a pin sets the pf_venue filter dropdown.
         _redraw_map_markers(
             plan_shows_map.widget, df_added, ["Venue"],
             on_marker_click=lambda row: ui.update_select("pf_venue", selected=row["name"], session=session),
         )
 
-        # Keep every added venue in view: one venue flies/zooms straight to
-        # it, two-or-more fit the map's bounds to include all of them
-        # instead of only ever centering on a single pin.
+        # Keeps every added venue in view: fly-to for one, fit-bounds for multiple.
         if len(df_added) == 1:
             row = df_added.iloc[0]
             plan_shows_map.widget.center = (float(row["latitude"]), float(row["longitude"]))
@@ -1729,11 +1593,7 @@ def server(input, output, session):
         return LeafletMap(center=AC_MAP_CENTER, zoom=13, basemap=basemaps.CartoDB.Positron)
 
     def _on_stay_map_click(row):
-        # One handler covering all categories shown on this map (unlike
-        # Plan Shows' venue-only map above) — dispatches by row["category"]
-        # to whichever action that category already supports elsewhere in
-        # the app, so a map click does exactly what clicking "Add"/the
-        # heart icon on that item's own card would do.
+        # Dispatches by row["category"] to the matching Add/favorite action.
         category = row.get("category")
         if category == "Stay":
             selected_stay.set((row["name"], row.get("description")))
@@ -1745,8 +1605,7 @@ def server(input, output, session):
             current = set(favorite_activity_ids.get())
             current.add(str(row["id_value"]))
             favorite_activity_ids.set(current)
-        # Venue markers on this map (if shown) are informational only —
-        # no venue-selection action exists on the Select Stay page.
+        # Venue markers here are informational only.
 
     @reactive.effect
     def _update_stay_trip_map():
@@ -1754,13 +1613,7 @@ def server(input, output, session):
             df = map_locations()
         except Exception:
             return
-        # Same auto-display logic as the Chance page's map now (no manual
-        # tick-to-show-all checkboxes anymore): Venue shows whatever's on
-        # the attendee's schedule, Stay shows only the one property
-        # actually selected, Dining/Activity show only what's been
-        # favorited — everything appears as the trip gets built up,
-        # instead of a checkbox flooding the map with all ~100 options
-        # in a category the moment it's ticked.
+        # Auto-display: Venue from schedule, Stay from selection, Dining/Activity from favorites.
         _ = schedule_tick.get()
         attendee = current_attendee.get()
         added_venues = set()
@@ -1783,14 +1636,7 @@ def server(input, output, session):
 
         _redraw_map_markers(stay_trip_map.widget, combined, ["Venue", "Stay", "Dining", "Activity"], on_marker_click=_on_stay_map_click)
 
-    # ── Chance page map: added venues (from Plan Shows) + favorited
-    # restaurants (from this page's own heart-toggle), so the trip build-up
-    # is visible on a map here too instead of only on Plan Shows/Select
-    # Stay. Venue markers stay the plain red music-note pin (same as Plan
-    # Shows, deliberately — one venue pin style everywhere); restaurants
-    # get Dining's existing orange cutlery-icon style from
-    # MAP_CATEGORY_STYLE, so the two categories read as visually distinct
-    # on the same map.
+    # Chance page map: added venues + favorited restaurants/activities.
     @render_widget
     def chance_map():
         return LeafletMap(center=AC_MAP_CENTER, zoom=13, basemap=basemaps.CartoDB.Positron)
@@ -1847,17 +1693,13 @@ def server(input, output, session):
 
         sections = []
 
-        # Headliners: horizontal scroll strip instead of a wrapping grid —
-        # keeps every headliner card at full size (no shrinking to fit
-        # a row) regardless of how many there are; extra ones scroll into
-        # view instead of wrapping to a second line or getting squeezed.
+        # Headliners: horizontal scroll strip, full card size regardless of count.
         headliners = df[df["tier"] == "Headliner"]
         if len(headliners):
             cards = "".join(_lineup_grid_card(r, large=True) for r in headliners.to_dict("records"))
             sections.append(f'<div class="rb-headliner-scroll" style="margin-top:20px">{cards}</div>')
 
-        # Support + Rising: consolidated into a single shared grid (instead of
-        # two separate stacked grids) so they flow together in the same lines.
+        # Support + Rising share one grid so they flow together.
         rest = df[df["tier"].isin(["Support", "Rising"])]
         if len(rest):
             cards = "".join(_lineup_grid_card(r, large=False) for r in rest.to_dict("records"))
@@ -1959,8 +1801,7 @@ def server(input, output, session):
         )
         return ui.HTML(f'<div style="background:transparent;padding:0 24px 20px"><p style="font-size:14px;color:#E4D8C4;margin:0 0 12px;text-shadow:0 1px 4px rgba(0,0,0,0.4)">{len(df)} stays, live from the database</p>{cards}</div>')
 
-    # Selected stay — session-only (no attendee_property table in the shared
-    # schema yet), single-select: Adding a different stay just swaps it.
+    # Selected stay — session-only, single-select.
     selected_stay = reactive.value(None)  # (property_name, section_of_ac) or None
 
     @reactive.effect
@@ -2007,10 +1848,7 @@ def server(input, output, session):
 
     @render.ui
     def trip_summary_header():
-        # Personalized with the name captured at registration (join_name),
-        # which was already being carried through current_attendee for
-        # every DB write on this page — it just was never actually shown
-        # to the person before now.
+        # Personalized with the name captured at registration.
         attendee = current_attendee.get()
         name = (attendee or {}).get("name") or ""
         greeting = f"Your trip so far, {html.escape(name)}" if name else "Your trip so far"
@@ -2022,10 +1860,7 @@ def server(input, output, session):
 
     @render.ui
     def trip_summary_shows():
-        # Was hardcoded fake times (Fri 6/9pm etc.) for every attendee
-        # regardless of what they'd actually added — now reads the same
-        # v_attendee_schedule-backed query the Schedule page and the
-        # progress icons already use, grouped by day.
+        # Real schedule grouped by day, from v_attendee_schedule.
         attendee = current_attendee.get()
         _ = schedule_tick.get()  # re-render after every Add/Remove, same pattern as elsewhere on this page
         rows_html = ""
@@ -2052,11 +1887,7 @@ def server(input, output, session):
 
     @render.ui
     def trip_progress_icons():
-        # The 4 Monopoly deed-card icons (each already has its own label
-        # baked into the art) replace the old flat colored squares, with a
-        # small checkmark/question-mark badge reflecting whether that piece
-        # of the trip is actually locked in yet — reading real session
-        # state instead of the old hardcoded ✓/? placeholders.
+        # 4 Monopoly deed-card icons with a checkmark/question-mark badge per trip piece.
         attendee = current_attendee.get()
         shows_done = False
         if attendee:
@@ -2065,10 +1896,7 @@ def server(input, output, session):
             except Exception:
                 shows_done = False
         stay_done = selected_stay.get() is not None
-        # Was tied to whether a chance card had been drawn (saved_chance_pick)
-        # — that's a lucky/random pick, not the same thing as actually
-        # having favorited a restaurant. Now matches activity_done's own
-        # logic: real progress is favoriting something, not drawing a card.
+        # Dining progress reflects favorited restaurants (matches activity_done's logic).
         dining_done = len(favorite_restaurant_ids.get()) > 0
         activity_done = len(favorite_activity_ids.get()) > 0
 
@@ -2083,11 +1911,7 @@ def server(input, output, session):
             opacity = "1" if done else ".45"
             badge_color = "background:#2EC4B6;color:#04342C" if done else "background:#F0997B;color:#4A1B0C"
             badge_symbol = "&#10003;" if done else "?"
-            # Fixed aspect-ratio + object-fit:cover so all 4 cards render at
-            # identical final dimensions — the 4 source jpgs each have their
-            # own natural proportions (the Ticket art is taller/narrower
-            # than the illustrated Stay/Dining/Activity cards), which
-            # produced visibly different heights when only width was fixed.
+            # Fixed aspect-ratio + object-fit:cover so all 4 cards render at identical size.
             tiles += f'''
             <div style="position:relative;opacity:{opacity};width:240px">
               <img src="{img}" style="width:240px;aspect-ratio:3/4;object-fit:cover;border-radius:20px;display:block;box-shadow:0 10px 26px rgba(0,0,0,0.35)">
@@ -2098,10 +1922,7 @@ def server(input, output, session):
           {tiles}
         </div>''')
 
-    # ── Page 8: Bank — clickable ticket tier cards ────────────────────────
-    # Session-only (no ticket/order table in the shared schema), single-
-    # select: clicking a different deed card swaps it and the price flows
-    # through to Trip summary's Total, the Pay button, and the bus pass.
+    # Page 8: Bank — clickable ticket tier cards, session-only single-select.
     selected_ticket_tier = reactive.value("vip")
 
     @reactive.effect
@@ -2127,11 +1948,7 @@ def server(input, output, session):
               <img src="{t_img}" style="width:100%;border-radius:14px;display:block;box-shadow:{shadow}">
             </div>'''
 
-        # Real trip summary, replacing the old hardcoded "2 shows added /
-        # Fri, Sat" placeholder block — same _compute_trip_budget() helper
-        # the standalone Budget Estimation section used to use, folded
-        # directly in here instead, since ui.output_ui can't be interleaved
-        # inside another render function's own returned HTML string.
+        # Real trip summary computed via _compute_trip_budget().
         line_items, total = _compute_trip_budget()
         summary_rows = ""
         for label, amount in line_items:
@@ -2181,8 +1998,7 @@ def server(input, output, session):
     @reactive.effect
     @reactive.event(input.pay_click)
     def _show_pay_modal():
-        # In-app confirmation modal for the "Pay & get tickets" button —
-        # styled like the rest of the site instead of a browser alert().
+        # In-app confirmation modal for the "Pay & get tickets" button.
         ui.modal_show(
             ui.modal(
                 ui.HTML('''
@@ -2202,14 +2018,7 @@ def server(input, output, session):
             )
         )
 
-    # Draw Chance re-roll counter. We deliberately DON'T use
-    # @reactive.event(input.draw_again, ignore_none=False) on chance_pick
-    # itself — in this environment that combination was silently preventing
-    # the very first render (confirmed by testing a plain @render.ui vs. one
-    # wrapped in @reactive.event side by side). Instead: a tiny effect bumps
-    # this counter on each click, and chance_pick reads it via plain
-    # automatic reactive tracking, which fires immediately on page load AND
-    # re-fires on every bump.
+    # Draw Chance re-roll counter — bumped on each "Draw again" click.
     chance_draw_trigger = reactive.value(0)
 
     @reactive.effect
@@ -2221,10 +2030,7 @@ def server(input, output, session):
     def chance_pick():
         chance_draw_trigger.get()  # dependency only — re-run on each "Draw again" click
 
-        # Whole function wrapped in one catch-all: absolutely anything that
-        # goes wrong here (even something unanticipated) should surface as
-        # visible red-ish text instead of silently rendering nothing, so a
-        # blank Chance page is never mysterious again.
+        # Wrapped in a catch-all so any error shows visible text instead of a blank page.
         try:
             attendee = current_attendee.get()
             attendee_id = attendee["id"] if attendee else None
@@ -2257,27 +2063,12 @@ def server(input, output, session):
                 style="background:transparent;padding:24px",
             )
 
-    # Draw Chance's "Save" button (rbSaveChance in JS) forwards the card's
-    # name/discount/desc/category here as a plain dict. This is session-only
-    # state (an in-memory reactive.value, not written to the database) — it
-    # resets if the server restarts, since there's no "saved_pick" table in
-    # the shared schema yet. Good enough to make the Summary page reflect
-    # what you actually drew instead of always showing placeholder text.
+    # Draw Chance's Save button forwards the drawn card's details as session state.
     saved_chance_pick = reactive.value(None)
 
     @render.ui
     def sponsors_strip():
-        # 7 of the 14 coupons actually have a sponsor attached (the rest are
-        # plain unsponsored discounts) — this is that subset, shown as a
-        # simple "Our Sponsors" row on the Chance page rather than a whole
-        # separate Sponsor page/nav tab, which wasn't worth the extra
-        # surface area this close to the deadline. Real logo files the
-        # user supplied themselves, placed on a small white tile (the
-        # source jpegs are already white-background — jpeg doesn't support
-        # transparency — so this reads as an intentional logo badge rather
-        # than a mismatched box). Hennessy has no logo file and is
-        # deliberately left out of this display entirely — the underlying
-        # coupon/sponsor data isn't touched, it just isn't shown here.
+        # Sponsors with an attached coupon, shown as logos on the Chance page.
         try:
             df = queries.get_sponsored_coupons()
         except Exception:
@@ -2285,8 +2076,7 @@ def server(input, output, session):
         if len(df) == 0:
             return ui.HTML("")
 
-        # Custom display order (not alphabetical) — requested explicitly.
-        # Hennessy intentionally excluded (no logo asset available).
+        # Custom sponsor display order; Hennessy excluded (no logo asset).
         LOGO_FILES = {
             "Hasbro, Inc.": "sponsors/hasbro.jpeg",
             "Spotify": "sponsors/spotify.jpeg",
@@ -2318,11 +2108,7 @@ def server(input, output, session):
     def _save_chance_pick():
         pick = input.save_chance_click()
         saved_chance_pick.set(pick)
-        # Saving a chance card now also favorites the underlying
-        # restaurant/activity (same as tapping its own heart icon would),
-        # so a lucky Chance draw actually counts toward your Restaurants/
-        # Activities list on the Trip Deed page instead of only showing
-        # up as a separate "drawn pick" callout.
+        # Saving a chance card also favorites the underlying restaurant/activity.
         item_id = (pick or {}).get("id")
         category = (pick or {}).get("category")
         if item_id:
@@ -2357,11 +2143,7 @@ def server(input, output, session):
           {body}
         </div>''')
 
-    # Browsable restaurant deal list on the Draw Chance page, below the
-    # flip card. Favoriting (heart icon) is session-only state — same
-    # tradeoff as saved_chance_pick above, no "favorites" table in the
-    # shared schema yet — but it's enough to make the hearted restaurants
-    # actually show up on the Summary page like you asked.
+    # Browsable restaurant deal list on the Draw Chance page. Favoriting is session-only state.
     favorite_restaurant_ids = reactive.value(set())
 
     @reactive.calc
@@ -2371,12 +2153,7 @@ def server(input, output, session):
         except Exception:
             return pd.DataFrame()
 
-    # Country/Type/Zone dropdowns start with placeholder choices and get
-    # their real values filled in here once the live restaurant data
-    # loads — Shiny's input_select needs static choices at UI-build time,
-    # so this is the dynamic-population step for values that only exist
-    # in the DB. Zone defaults to "1" (Boardwalk/Casino) once real zone
-    # choices are in, rather than showing all ~100 restaurants at once.
+    # Country/Type/Zone dropdowns populate from live DB data on load.
     @reactive.effect
     def _populate_restaurant_filters():
         df = all_restaurants_df()
@@ -2410,11 +2187,7 @@ def server(input, output, session):
 
     @render.ui
     def restaurant_list():
-        # Filter-driven instead of grouped-by-country — with ~100
-        # restaurants, splitting into country sections still meant a lot of
-        # scrolling. Country / Type / Price / Zone dropdowns narrow the
-        # list down directly, defaulting to just Zone 1 so a first-time
-        # visitor isn't handed all ~100 restaurants at once.
+        # Country / Type / Price / Zone dropdowns filter the list; Zone defaults to 1.
         df = all_restaurants_df()
         if len(df) == 0:
             return ui.HTML('<div class="dashedbox" style="height:60px">Couldn\'t load restaurants right now</div>')
@@ -2468,10 +2241,7 @@ def server(input, output, session):
           {body}
         </div>''')
 
-    # Browsable activity deal list on the Draw Chance page, below the
-    # restaurant deals — same pattern as restaurants above (live DB data,
-    # session-only favoriting, one filter), just sourced from
-    # activity + activity_category instead of restaurant.
+    # Browsable activity deal list on the Draw Chance page.
     favorite_activity_ids = reactive.value(set())
 
     @reactive.calc
@@ -2532,11 +2302,7 @@ def server(input, output, session):
             return ui.HTML('<div class="dashedbox" style="height:60px">No activities match that filter</div>')
 
         cards = "".join(
-            # activity_id is a numeric DB column (unlike restaurant_id,
-            # which is a text code like "R047"), but the heart's onclick
-            # always sends it to Shiny as a string — compare as strings on
-            # both sides so numeric vs. string types don't silently fail
-            # to match and make the heart look unclickable.
+            # activity_id is numeric; string-compare to match the heart's onclick payload.
             _activity_card_html(r, is_fav=(str(r["activity_id"]) in favs))
             for r in df.to_dict("records")
         )
@@ -2561,21 +2327,9 @@ def server(input, output, session):
         </div>''')
 
     def _compute_trip_budget():
-        """Used by bank_content's Trip Summary block. Returns (line_items,
-        total) where line_items is a list of (label, amount_or_None)
-        tuples — amount is None for the stay row
-        when nothing's selected yet, so callers can render "TBD" instead
-        of a fake $0.
-
-        Ticket: flat price for whichever tier is currently picked on the
-        Bank page. Stay: average of price_min_usd/price_max_usd for the
-        one selected property, multiplied by 3 nights (the festival is
-        Aug 21-23, fixed length — no separate length-of-stay input in
-        this app). Dining/Activities: sum of est_cost_per_person_usd /
-        price_usd across everything hearted as a favorite. The one thing
-        NOT counted: a saved Draw Chance pick — it's a stumbled-into deal
-        with no reliable base price to sum, not a planned expense.
-        """
+        """Returns (line_items, total): ticket price + stay (avg rate x 3
+        nights) + sum of favorited dining/activity costs. Stay amount is
+        None if nothing's selected yet."""
         line_items = []
 
         tier_key = selected_ticket_tier.get()

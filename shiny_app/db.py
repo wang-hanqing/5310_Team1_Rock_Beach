@@ -12,10 +12,7 @@ load_dotenv()
 
 
 def _get_config():
-    """Read connection settings from environment variables. Deferred until
-    a connection is actually requested (not at import time), so the rest of
-    the app can still start up and show a friendly error if .env is missing
-    or misconfigured, rather than crashing on import."""
+    """Read connection settings from environment variables."""
     missing = [k for k in ("DB_HOST", "DB_NAME", "DB_USER", "DB_PASSWORD") if not os.environ.get(k)]
     if missing:
         raise RuntimeError(
@@ -49,8 +46,7 @@ def run_query(sql: str, params=None) -> pd.DataFrame:
 
 def insert_and_return_id(sql: str, params=None):
     """Run an INSERT ... RETURNING <col> statement and commit it, returning
-    that column's value. Used for writes (e.g. registering an attendee),
-    as opposed to run_query() which is read-only."""
+    that column's value."""
     conn = get_connection()
     try:
         with conn.cursor() as cur:
