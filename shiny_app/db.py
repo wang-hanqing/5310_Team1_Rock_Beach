@@ -4,10 +4,7 @@ import pandas as pd
 from dotenv import load_dotenv
 
 # ── DATABASE CONNECTION ──────────────────────────────────────────────────────
-# Team 1's shared DigitalOcean Postgres instance.
-# Credentials live in a local .env file (never committed to git) — see
-# .env.example for the template. Each teammate creates their own .env with
-# the real values after the password rotation.
+
 load_dotenv()
 
 
