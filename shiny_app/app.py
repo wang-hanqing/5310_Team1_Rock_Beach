@@ -2555,19 +2555,77 @@ def server(input, output, session):
 
     @render.ui
     def trip_summary_footer():
+        import urllib.parse
+
         attendee = current_attendee.get()
+        name = (attendee or {}).get("name") or "there"
+
         n_shows = 0
+        shows_lines = []
         if attendee:
             try:
-                n_shows = len(queries.get_attendee_schedule(attendee["id"]))
+                sched = queries.get_attendee_schedule(attendee["id"])
+                n_shows = len(sched)
+                for day_number, group in sched.groupby("day_number"):
+                    day_label = DAY_POSTER_LABELS.get(int(day_number), f"Day {day_number}")
+                    times = ", ".join(_fmt_time(t) for t in group["start_time"])
+                    shows_lines.append(f"  {day_label}: {len(group)} show(s) at {times}")
             except Exception:
                 n_shows = 0
+
         n_stay = 1 if selected_stay.get() else 0
-        n_picks = len(favorite_restaurant_ids.get()) + len(favorite_activity_ids.get())
+        picked_stay = selected_stay.get()
+        stay_line = "Stay: not selected yet"
+        if picked_stay:
+            stay_line = f"Stay: {picked_stay[0]}"
+            try:
+                details = queries.get_stay_details(picked_stay[0])
+                if details is not None and isinstance(details.get("google_maps_link"), str) and details["google_maps_link"].strip():
+                    stay_line += f"\n  Book here: {details['google_maps_link']}"
+            except Exception:
+                pass
+
+        favs_r = favorite_restaurant_ids.get()
+        favs_a = favorite_activity_ids.get()
+        n_picks = len(favs_r) + len(favs_a)
+
+        rest_lines = []
+        rest_df = all_restaurants_df()
+        if len(rest_df) and favs_r:
+            for r in rest_df[rest_df["restaurant_id"].isin(favs_r)].to_dict("records"):
+                link = r.get("yelp_url") or r.get("google_maps_url") or ""
+                rest_lines.append(f"  - {r['name']}" + (f" -> {link}" if link else ""))
+
+        act_lines = []
+        act_df = all_activities_df()
+        if len(act_df) and favs_a:
+            for a in act_df[act_df["activity_id"].astype(str).isin(favs_a)].to_dict("records"):
+                act_lines.append(f"  - {a['activity_name']}")
+
+        body_lines = [f"Hi {name}, here's your Rock & Beach trip so far:", ""]
+        body_lines.append(f"SHOWS ({n_shows} added)")
+        body_lines.extend(shows_lines or ["  None added yet"])
+        body_lines.append("")
+        body_lines.append(stay_line)
+        if rest_lines:
+            body_lines.append("")
+            body_lines.append("RESTAURANTS (tap a link to book/view)")
+            body_lines.extend(rest_lines)
+        if act_lines:
+            body_lines.append("")
+            body_lines.append("ACTIVITIES")
+            body_lines.extend(act_lines)
+        body_lines.append("")
+        body_lines.append("See the full trip + live budget estimate in the app.")
+
+        mailto_body = urllib.parse.quote("\r\n".join(body_lines))
+        mailto_subject = urllib.parse.quote("Your Rock & Beach trip itinerary")
+        mailto_href = f"mailto:?subject={mailto_subject}&body={mailto_body}"
 
         return ui.HTML(f'''
-        <div style="background:#F4D9A0;border-radius:10px;margin:0 24px 20px;padding:18px 24px;text-align:center">
+        <div style="background:#F4D9A0;border-radius:10px;margin:0 24px 20px;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
           <span style="font-size:14px;color:#1B2A4A">{n_shows} shows &middot; {n_stay} stay &middot; {n_picks} saved picks</span>
+          <a href="{mailto_href}" style="text-decoration:none;background:#1B2A4A;color:#FDF6E3;font-size:14px;font-weight:700;padding:12px 20px;border-radius:14px;display:inline-block">Email me this itinerary &#9993;</a>
         </div>
         ''')
 
