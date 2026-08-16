@@ -207,6 +207,21 @@ def get_all_restaurants():
     return run_query(sql)
 
 
+def get_sponsored_coupons():
+    """The subset of coupons that actually have a sponsor attached (7 of
+    14 — see 06_load_remaining_data.sql's sponsor pairing), for the
+    Chance page's "Our Sponsors" strip. Coupons without a sponsor_id are
+    plain unsponsored discounts and aren't included here."""
+    sql = """
+        SELECT c.coupon_id, c.item_type, c.discount_label, c.coupon_desc,
+               s.sponsor_name
+        FROM coupon c
+        JOIN sponsor s ON s.sponsor_id = c.sponsor_id
+        ORDER BY s.sponsor_name
+    """
+    return run_query(sql)
+
+
 def get_all_activities():
     """All activities for the Draw Chance page's browsable deal list —
     same shape/purpose as get_all_restaurants() above, just sourced from

@@ -202,6 +202,20 @@ def _db_error_box(message: str) -> str:
     </div>'''
 
 
+def _monopoly_toast(text: str, icon: str = "&#127922;"):
+    """A small deed-card-styled toast for ui.notification_show — cream
+    card, navy border, slight rotation like the .token chips elsewhere,
+    replacing Shiny's plain default gray notification bar so confirmation
+    pop-ups (Add a show, Select a stay, favorite a restaurant/activity)
+    match the rest of the site's Monopoly styling instead of looking like
+    generic framework chrome."""
+    return ui.HTML(f'''
+    <div style="background:#FDF6E3;border:2px solid #1B2A4A;border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 3px 0 rgba(27,42,74,0.2);transform:rotate(-1deg)">
+      <span style="font-size:20px;flex-shrink:0">{icon}</span>
+      <span style="font-size:13px;font-weight:700;color:#1B2A4A;text-transform:uppercase;letter-spacing:0.03em">{text}</span>
+    </div>''')
+
+
 FALLBACK_GRADIENTS = [
     "linear-gradient(160deg, #7F77DD 0%, #2B1B4A 100%)",
     "linear-gradient(160deg, #F0997B 0%, #4A1B0C 100%)",
@@ -1252,6 +1266,7 @@ app_ui = ui.page_fluid(
                 ui.HTML(stepper_html(3)),
                 ui.HTML(PAGE_6_INTRO),
                 ui.output_ui("chance_pick"),
+                ui.output_ui("sponsors_strip"),
                 ui.div(
                     ui.div(
                         ui.div(
@@ -1427,7 +1442,7 @@ def server(input, output, session):
                 easy_close=True,
                 footer=ui.TagList(
                     ui.modal_button("Cancel"),
-                    ui.input_action_button("join_submit", "Join & collect $200", class_="rb-cta-banner-btn"),
+                    ui.input_action_button("join_submit", "Join", class_="rb-cta-banner-btn"),
                 ),
             )
         )
@@ -1454,7 +1469,6 @@ def server(input, output, session):
             return
         current_attendee.set({"id": attendee_id, "name": name})
         ui.modal_remove()
-        ui.notification_show(f"Welcome, {name}! You collected $200.", type="message", duration=4)
         await session.send_custom_message("rbShowPage", {"page": 2})
 
     # ── Page 3: Plan Shows — filter bar, Add-a-show, conflict detection ──
@@ -1619,7 +1633,7 @@ def server(input, output, session):
         try:
             queries.add_attendee_performance(attendee["id"], int(performance_id))
             conflict_msg.set("")
-            ui.notification_show("Added to your schedule.", type="message", duration=3)
+            ui.notification_show(_monopoly_toast("Added to your schedule"), duration=3)
             # Fly the venue map straight to this show's stage, so Add
             # visibly connects to a pin instead of leaving the map generic.
             try:
@@ -1651,7 +1665,7 @@ def server(input, output, session):
         performance_id = input.remove_click()
         try:
             queries.remove_attendee_performance(attendee["id"], int(performance_id))
-            ui.notification_show("Removed from your schedule.", type="message", duration=3)
+            ui.notification_show(_monopoly_toast("Removed from your schedule", icon="&#10005;"), duration=3)
         except Exception as e:
             conflict_msg.set(f"couldn't remove that show ({e}).")
         schedule_tick.set(schedule_tick.get() + 1)
@@ -1958,7 +1972,7 @@ def server(input, output, session):
     def _add_stay():
         picked = input.add_stay_click()
         selected_stay.set((picked.get("name"), picked.get("zone")))
-        ui.notification_show("Stay selected.", type="message", duration=3)
+        ui.notification_show(_monopoly_toast("Stay selected", icon="&#127976;"), duration=3)
 
     @reactive.effect
     @reactive.event(input.remove_stay_click)
@@ -2255,6 +2269,33 @@ def server(input, output, session):
     # what you actually drew instead of always showing placeholder text.
     saved_chance_pick = reactive.value(None)
 
+    @render.ui
+    def sponsors_strip():
+        # 7 of the 14 coupons actually have a sponsor attached (the rest are
+        # plain unsponsored discounts) — this is that subset, shown as a
+        # simple "Our Sponsors" row on the Chance page rather than a whole
+        # separate Sponsor page/nav tab, which wasn't worth the extra
+        # surface area this close to the deadline.
+        try:
+            df = queries.get_sponsored_coupons()
+        except Exception:
+            return ui.HTML("")
+        if len(df) == 0:
+            return ui.HTML("")
+        cards = ""
+        for r in df.to_dict("records"):
+            cards += f'''
+            <div style="background:#FDF6E3;border:1.5px solid #1B2A4A;border-radius:10px;padding:10px 14px;min-width:150px;flex:1">
+              <p style="font-size:12px;font-weight:800;color:#1B2A4A;margin:0 0 3px;text-transform:uppercase;letter-spacing:0.03em">{html.escape(r["sponsor_name"])}</p>
+              <p style="font-size:12px;color:#6b6248;margin:0">{html.escape(r["discount_label"] or "")} &middot; {html.escape(r["coupon_desc"] or "")}</p>
+            </div>'''
+        return ui.HTML(f'''
+        <div style="background:transparent;padding:8px 24px 4px">
+          <p style="font-size:14px;font-weight:400;color:#FDF6E3;margin:0 0 10px;text-shadow:0 1px 4px rgba(0,0,0,0.4);text-transform:uppercase;letter-spacing:0.05em">Our sponsors</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">{cards}</div>
+        </div>
+        ''')
+
     @reactive.effect
     @reactive.event(input.save_chance_click)
     def _save_chance_pick():
@@ -2347,6 +2388,7 @@ def server(input, output, session):
             current.discard(clicked)
         else:
             current.add(clicked)
+            ui.notification_show(_monopoly_toast("Restaurant favorited", icon="&#127860;"), duration=3)
         favorite_restaurant_ids.set(current)
 
     @render.ui
@@ -2446,6 +2488,7 @@ def server(input, output, session):
             current.discard(clicked)
         else:
             current.add(clicked)
+            ui.notification_show(_monopoly_toast("Activity favorited", icon="&#127940;"), duration=3)
         favorite_activity_ids.set(current)
 
     @render.ui
