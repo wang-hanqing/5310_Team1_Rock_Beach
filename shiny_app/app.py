@@ -1169,16 +1169,6 @@ TICKET_TIERS = {
     "club": ("Boardwalk%20Pass.png", "Boardwalk & Park Place", 999),
 }
 
-PAGE_8_BOTTOM = """
-<div style="background:transparent;padding:22px 24px">
-  <div style="background:#fff;border:1px solid #ddd;border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-wrap:wrap">
-    <div style="flex:1"><p style="font-size:15px;font-weight:700;margin:0">Reservation emailed</p><p style="font-size:13px;color:#888;margin:3px 0 0">Sent to you@email.com &middot; includes ticket, stay, and schedule</p></div>
-    <span class="chip" style="border:1px solid #ccc;background:#fff">Resend</span>
-  </div>
-  <div style="display:flex;gap:10px"><input placeholder="Add another email (optional)" style="flex:1"><span style="background:#1B2A4A;color:#FDF6E3;font-size:14px;font-weight:700;padding:11px 16px;border-radius:10px">Send</span></div>
-</div>
-"""
-
 
 def _page(idx: int, *children) -> ui.Tag:
     cls = "rb-page active" if idx == 0 else "rb-page"
@@ -1369,7 +1359,6 @@ app_ui = ui.page_fluid(
             ui.HTML(stepper_html(6)),
             ui.HTML(PAGE_8_TOP),
             ui.output_ui("bank_content"),
-            ui.HTML(PAGE_8_BOTTOM),
             class_="rb-shadow-page",
         )),
         class_="rb-frame",
@@ -2275,19 +2264,27 @@ def server(input, output, session):
         # plain unsponsored discounts) — this is that subset, shown as a
         # simple "Our Sponsors" row on the Chance page rather than a whole
         # separate Sponsor page/nav tab, which wasn't worth the extra
-        # surface area this close to the deadline.
+        # surface area this close to the deadline. Names only, no deal
+        # text and no logo marks — real brand logos are trademarked, so
+        # this sticks to a plain wordmark-style name list instead of
+        # trying to source/reproduce official marks.
         try:
             df = queries.get_sponsored_coupons()
         except Exception:
             return ui.HTML("")
         if len(df) == 0:
             return ui.HTML("")
+
+        # Custom display order (not alphabetical) — requested explicitly.
+        order = ["Hasbro, Inc.", "Spotify", "Heineken", "Hennessy", "GoPro", "American Express", "Anheuser-Busch"]
+        by_name = {r["sponsor_name"]: r for r in df.to_dict("records")}
+        ordered_names = [n for n in order if n in by_name] + [n for n in by_name if n not in order]
+
         cards = ""
-        for r in df.to_dict("records"):
+        for name in ordered_names:
             cards += f'''
-            <div style="background:#FDF6E3;border:1.5px solid #1B2A4A;border-radius:10px;padding:10px 14px;min-width:150px;flex:1">
-              <p style="font-size:12px;font-weight:800;color:#1B2A4A;margin:0 0 3px;text-transform:uppercase;letter-spacing:0.03em">{html.escape(r["sponsor_name"])}</p>
-              <p style="font-size:12px;color:#6b6248;margin:0">{html.escape(r["discount_label"] or "")} &middot; {html.escape(r["coupon_desc"] or "")}</p>
+            <div style="background:#FDF6E3;border:1.5px solid #1B2A4A;border-radius:10px;padding:12px 18px;flex:1;min-width:130px;text-align:center">
+              <p style="font-size:13px;font-weight:800;color:#1B2A4A;margin:0;text-transform:uppercase;letter-spacing:0.03em">{html.escape(name)}</p>
             </div>'''
         return ui.HTML(f'''
         <div style="background:transparent;padding:8px 24px 4px">
