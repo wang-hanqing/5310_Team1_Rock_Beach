@@ -882,6 +882,12 @@ input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; 
 .rb-chance-card-overlay { position:absolute; left:6%; right:6%; top:62%; bottom:6%; background:#F3EAD6; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:8px 10px; text-align:center; overflow:hidden; }
 
 /* Draw Chance's browsable restaurant deal list, below the flip card. */
+/* ipyleaflet's own internal .leaflet-container div doesn't always
+   inherit the height we set on output_widget(height="500px") — it can
+   render shorter, leaving empty space inside the bordered frame below
+   the actual map tiles. Force every layer down to 100% height so the
+   border always hugs the real map exactly. */
+.html-widget, .html-fill-item, .leaflet-container { height:100% !important; }
 .rb-restaurant-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 190px)); gap:12px; }
 .rb-restaurant-tile { background:#FDF6E3; border-radius:12px; overflow:hidden; display:flex; flex-direction:column; }
 .rb-restaurant-photo-top { position:relative; height:88px; display:flex; align-items:center; justify-content:center; }
@@ -1218,9 +1224,10 @@ app_ui = ui.page_fluid(
                         style="flex:1;min-width:280px",
                     ),
                     ui.div(
+                        ui.div(style="height:53px"),
                         ui.div(
                             output_widget("plan_shows_map", height="500px"),
-                            style="border:2px solid #1B2A4A;border-radius:14px;overflow:hidden;box-shadow:0 3px 0 rgba(27,42,74,0.15)",
+                            style="border:2px solid #1B2A4A;border-radius:14px;overflow:hidden;box-shadow:0 3px 0 rgba(27,42,74,0.15);height:500px",
                         ),
                         style="width:340px;flex-shrink:0;position:sticky;top:16px",
                     ),
@@ -1272,7 +1279,7 @@ app_ui = ui.page_fluid(
                         ),
                         ui.div(
                             ui.HTML('''
-                            <div style="display:flex;gap:12px;flex-wrap:wrap;padding:0 2px 8px;font-size:11px;color:#FDF6E3;text-shadow:0 1px 4px rgba(0,0,0,0.4)">
+                            <div style="display:flex;gap:12px;flex-wrap:wrap;padding:44px 2px 8px;font-size:11px;color:#FDF6E3;text-shadow:0 1px 4px rgba(0,0,0,0.4)">
                               <span>&#128308; Venue</span>
                               <span>&#128992; Dining</span>
                               <span>&#128994; Activity</span>
@@ -1280,7 +1287,7 @@ app_ui = ui.page_fluid(
                             '''),
                             ui.div(
                                 output_widget("chance_map", height="500px"),
-                                style="border:2px solid #1B2A4A;border-radius:14px;overflow:hidden;box-shadow:0 3px 0 rgba(27,42,74,0.15)",
+                                style="border:2px solid #1B2A4A;border-radius:14px;overflow:hidden;box-shadow:0 3px 0 rgba(27,42,74,0.15);height:500px",
                             ),
                             style="width:340px;flex-shrink:0;position:sticky;top:16px",
                         ),
@@ -1310,7 +1317,7 @@ app_ui = ui.page_fluid(
                     ),
                     ui.div(
                         ui.HTML('''
-                        <div style="display:flex;gap:12px;flex-wrap:wrap;padding:0 2px 8px;font-size:11px;color:#FDF6E3;text-shadow:0 1px 4px rgba(0,0,0,0.4)">
+                        <div style="display:flex;gap:12px;flex-wrap:wrap;padding:22px 2px 8px;font-size:11px;color:#FDF6E3;text-shadow:0 1px 4px rgba(0,0,0,0.4)">
                           <span>&#128308; Venue</span>
                           <span>&#128309; Stay</span>
                           <span>&#128992; Dining</span>
@@ -1319,7 +1326,7 @@ app_ui = ui.page_fluid(
                         '''),
                         ui.div(
                             output_widget("stay_trip_map", height="500px"),
-                            style="border:2px solid #1B2A4A;border-radius:14px;overflow:hidden;box-shadow:0 3px 0 rgba(27,42,74,0.15)",
+                            style="border:2px solid #1B2A4A;border-radius:14px;overflow:hidden;box-shadow:0 3px 0 rgba(27,42,74,0.15);height:500px",
                         ),
                         style="width:340px;flex-shrink:0;position:sticky;top:16px",
                     ),
@@ -2151,7 +2158,7 @@ def server(input, output, session):
             </div>
           </div>
           <p style="font-size:11px;color:#E4D8C4;opacity:.75;margin:0 0 20px">&#128274; Secure checkout &mdash; a course-project mock, no real payment is processed.</p>
-          <div onclick="rbPayClick()" class="rb-cta" style="text-align:center;background:#FFD84D;border:1.5px solid #1B2A4A;color:#1B2A4A;font-size:16px;font-weight:700;padding:14px;border-radius:12px">Pay ${total:,.0f} and get tickets</div>
+          <div onclick="rbPayClick()" class="rb-cta" style="text-align:center;background:#FFD84D;border:1.5px solid #1B2A4A;color:#1B2A4A;font-size:16px;font-weight:700;padding:14px;border-radius:12px">Pay ${price} and get tickets</div>
         </div>
         <div style="background:transparent;padding:24px;text-align:center">
           <div style="background:#FDF6E3;border:1.5px solid #1B2A4A;border-radius:12px;padding:20px;max-width:340px;margin:0 auto">
