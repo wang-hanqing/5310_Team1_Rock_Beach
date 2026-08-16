@@ -1,9 +1,7 @@
 """
 queries.py — read queries against the Rock & Beach Postgres schema.
 
-Each function returns a pandas DataFrame via db.run_query(). Nothing here
-mutates data — these are all SELECTs used to render live content on the
-website (Lineup, Schedule, Stay, Chance pages).
+Each function returns a pandas DataFrame via db.run_query(). 
 """
 
 from pathlib import Path
@@ -13,7 +11,7 @@ import pandas as pd
 from db import run_query, insert_and_return_id
 
 # Small curated coupon list (coupon_id, item_type, restaurant_id, activity_id,
-# coupon_desc, discount_label) — lives as a static CSV next to app.py rather
+# coupon_desc, discount_label) lives as a static CSV next to app.py rather
 # than a DB table, since it's a short hand-picked bonus list, not
 # database-of-record content. Only a handful of restaurants/activities have
 # a coupon on purpose (like a real Chance card, most draws are plain — a
