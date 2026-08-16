@@ -2302,8 +2302,9 @@ def server(input, output, session):
         cards = ""
         for name in ordered_names:
             cards += f'''
-            <div style="background:#fff;border:1.5px solid #1B2A4A;border-radius:10px;padding:14px 18px;flex:1;min-width:130px;display:flex;align-items:center;justify-content:center">
-              <img src="{LOGO_FILES[name]}" alt="{html.escape(name)}" style="max-width:100%;max-height:44px;object-fit:contain;display:block">
+            <div style="background:#FDF6E3;border:1.5px solid #1B2A4A;border-radius:10px;padding:10px 14px;flex:1;min-width:160px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <span style="font-size:12.5px;font-weight:800;color:#1B2A4A;text-transform:uppercase;letter-spacing:0.03em;white-space:nowrap">{html.escape(name)}</span>
+              <img src="{LOGO_FILES[name]}" alt="{html.escape(name)}" style="width:44px;height:26px;object-fit:contain;flex-shrink:0">
             </div>'''
         return ui.HTML(f'''
         <div style="background:transparent;padding:8px 24px 4px">
