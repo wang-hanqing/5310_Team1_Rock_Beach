@@ -902,6 +902,13 @@ input { border:1px solid #ccc; border-radius:6px; padding:10px; font-size:14px; 
    the actual map tiles. Force every layer down to 100% height so the
    border always hugs the real map exactly. */
 .html-widget, .html-fill-item, .leaflet-container { height:100% !important; }
+/* Shiny's default notification wraps whatever content we give it in its
+   own white panel + close button — that was showing as a plain white box
+   around the custom Monopoly-styled toast card. Stripped down to
+   transparent/borderless so only our own card is visible. */
+.shiny-notification { background:transparent !important; border:none !important; box-shadow:none !important; padding:0 !important; }
+.shiny-notification-content { padding:0 !important; }
+.shiny-notification-close { color:#1B2A4A !important; opacity:.5; }
 .rb-restaurant-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 190px)); gap:12px; }
 .rb-restaurant-tile { background:#FDF6E3; border-radius:12px; overflow:hidden; display:flex; flex-direction:column; }
 .rb-restaurant-photo-top { position:relative; height:88px; display:flex; align-items:center; justify-content:center; }
@@ -2264,10 +2271,13 @@ def server(input, output, session):
         # plain unsponsored discounts) — this is that subset, shown as a
         # simple "Our Sponsors" row on the Chance page rather than a whole
         # separate Sponsor page/nav tab, which wasn't worth the extra
-        # surface area this close to the deadline. Names only, no deal
-        # text and no logo marks — real brand logos are trademarked, so
-        # this sticks to a plain wordmark-style name list instead of
-        # trying to source/reproduce official marks.
+        # surface area this close to the deadline. Real logo files the
+        # user supplied themselves, placed on a small white tile (the
+        # source jpegs are already white-background — jpeg doesn't support
+        # transparency — so this reads as an intentional logo badge rather
+        # than a mismatched box). Hennessy has no logo file and is
+        # deliberately left out of this display entirely — the underlying
+        # coupon/sponsor data isn't touched, it just isn't shown here.
         try:
             df = queries.get_sponsored_coupons()
         except Exception:
@@ -2276,15 +2286,24 @@ def server(input, output, session):
             return ui.HTML("")
 
         # Custom display order (not alphabetical) — requested explicitly.
-        order = ["Hasbro, Inc.", "Spotify", "Heineken", "Hennessy", "GoPro", "American Express", "Anheuser-Busch"]
+        # Hennessy intentionally excluded (no logo asset available).
+        LOGO_FILES = {
+            "Hasbro, Inc.": "sponsors/hasbro.jpeg",
+            "Spotify": "sponsors/spotify.jpeg",
+            "Heineken": "sponsors/heineken.png",
+            "GoPro": "sponsors/gopro.jpeg",
+            "American Express": "sponsors/american_express.jpeg",
+            "Anheuser-Busch": "sponsors/anheuser-busch.jpeg",
+        }
+        order = ["Hasbro, Inc.", "Spotify", "Heineken", "GoPro", "American Express", "Anheuser-Busch"]
         by_name = {r["sponsor_name"]: r for r in df.to_dict("records")}
-        ordered_names = [n for n in order if n in by_name] + [n for n in by_name if n not in order]
+        ordered_names = [n for n in order if n in by_name and n in LOGO_FILES]
 
         cards = ""
         for name in ordered_names:
             cards += f'''
-            <div style="background:#FDF6E3;border:1.5px solid #1B2A4A;border-radius:10px;padding:12px 18px;flex:1;min-width:130px;text-align:center">
-              <p style="font-size:13px;font-weight:800;color:#1B2A4A;margin:0;text-transform:uppercase;letter-spacing:0.03em">{html.escape(name)}</p>
+            <div style="background:#fff;border:1.5px solid #1B2A4A;border-radius:10px;padding:14px 18px;flex:1;min-width:130px;display:flex;align-items:center;justify-content:center">
+              <img src="{LOGO_FILES[name]}" alt="{html.escape(name)}" style="max-width:100%;max-height:44px;object-fit:contain;display:block">
             </div>'''
         return ui.HTML(f'''
         <div style="background:transparent;padding:8px 24px 4px">
