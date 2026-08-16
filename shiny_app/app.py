@@ -2,20 +2,8 @@
 app.py — Rock & Beach Festival: Monopoly-themed trip planner (Shiny for Python)
 
 An 8-screen flow (Pass Go -> Lineup -> Plan Shows -> Schedule -> Stay ->
-Chance -> Summary -> Bank), styled like a Monopoly board game. Navigation
-between screens is instant vanilla JS (show/hide, no server round-trip).
+Chance -> Trip Deed -> The Bank), styled like a Monopoly board game.
 
-Four sections pull LIVE data straight from the shared Postgres database via
-queries.py / db.py, using Shiny's @render.ui — these re-run every time a
-session loads the page, so any row your teammates add/edit in the database
-shows up automatically without redeploying:
-  - Lineup page: headliner spotlight + Headliner/Support/Rising artist cards
-  - Schedule page: real performances grouped by festival day
-  - Stay page: top-rated properties
-  - Chance page: random restaurant pick (re-rolls live on "Draw again")
-
-Everything else (Pass Go, Plan Shows, Trip Summary, Bank) stays static —
-those need per-attendee login/session state this project doesn't have yet.
 """
 
 import html
